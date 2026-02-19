@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Big Ben Manila Arcade</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --london-blue: #002147; --royal-red: #991b1b; }
+    .bg-london-blue { background-color: var(--london-blue); }
+    .bg-royal-red { background-color: var(--royal-red); }
+    
+    html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Removes scroll */
+        background-color: #f8fafc;
+    }
+
+    body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Vertical Center */
+        align-items: center;
+    }
+
+    @keyframes pop-up { 0% { transform: scale(0.5); opacity: 0; } 80% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+    .animate-pop-up { animation: pop-up 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+  </style>
+</head>
+<body>
+
+  <div id="screenChooseGame" class="flex flex-col items-center justify-center w-full px-4">
+    <div class="bg-white p-8 md:p-10 rounded-[40px] shadow-2xl w-full max-w-lg text-center border-2 border-slate-100 animate-pop-up">
+      <div class="mb-8">
+        <h1 class="text-3xl font-black tracking-tighter text-london-blue uppercase italic leading-tight">Choose <span class="text-royal-red">Game</span></h1>
+        <p class="text-slate-400 text-[10px] font-bold tracking-widest mt-1 uppercase">Big Ben Manila Arcade</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/bingo" class="group relative bg-london-blue p-6 rounded-3xl transition-all hover:scale-105 active:scale-95 shadow-lg overflow-hidden text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-10"><span class="text-4xl">🎰</span></div> -->
+          <h2 class="text-white font-black uppercase italic tracking-tighter">Bingo</h2>
+          <!-- <p class="text-white/50 text-[8px] font-bold uppercase tracking-widest mt-1">Manila Edition</p> -->
+        </a>
+
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/color-game" class="group relative bg-royal-red p-6 rounded-3xl transition-all hover:scale-105 active:scale-95 shadow-lg overflow-hidden text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-10"><span class="text-4xl">🎲</span></div> -->
+          <h2 class="text-white font-black uppercase italic tracking-tighter">Color Game</h2>
+          <!-- <p class="text-white/50 text-[8px] font-bold uppercase tracking-widest mt-1">Live Draw</p> -->
+        </a>
+
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/tictactoe" class="group relative border-4 border-london-blue p-6 rounded-3xl transition-all hover:bg-slate-50 hover:scale-105 active:scale-95 shadow-md text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-10 text-london-blue"><span class="text-4xl">❌</span></div> -->
+          <h2 class="text-london-blue font-black uppercase italic tracking-tighter">TicTacToe</h2>
+          <!-- <p class="text-slate-400 text-[8px] font-bold uppercase tracking-widest mt-1">Classic Battle</p> -->
+        </a>
+
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/feather-dash" class="group relative bg-yellow-400 p-6 rounded-3xl transition-all hover:scale-105 active:scale-95 shadow-lg overflow-hidden text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-20"><span class="text-4xl">🐦</span></div> -->
+          <h2 class="text-yellow-900 font-black uppercase italic tracking-tighter">Feather Dash</h2>
+          <!-- <p class="text-yellow-800/60 text-[8px] font-bold uppercase tracking-widest mt-1">Feather Dash</p> -->
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <footer class="fixed bottom-6 flex flex-col items-center gap-1 opacity-60 w-full pointer-events-none text-center">
+    <p class="text-[9px] font-bold tracking-[0.2em] text-london-blue uppercase">Powered by Gemini AI</p>
+    <p class="text-[8px] font-medium text-slate-400 uppercase tracking-wider">&copy; 2026 Big Ben Manila Arcade</p>
+  </footer>
+
+</body>
+</html>
