@@ -32,7 +32,7 @@
 
   <div class="w-full max-w-sm space-y-4">
     
-    <button onclick="window.location.href='/solo-blitz/index.html'" class="menu-card glow-purple w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
+    <button onclick="window.location.href='/bigben-arcade/tictacblitz/solo-blitz/'" class="menu-card glow-purple w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
       <div class="text-left">
         <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-purple-400 transition-colors">Solo Blitz</h2>
         <p class="text-xs text-slate-500 font-medium">Practice against AI</p>
@@ -40,7 +40,7 @@
       <span class="text-3xl">🤖</span>
     </button>
 
-    <button onclick="window.location.href='/blitz-by-blitz/index.html'" class="menu-card glow-blue w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
+    <button onclick="window.location.href='/bigben-arcade/tictacblitz/blitz-by-blitz/'" class="menu-card glow-blue w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
       <div class="text-left">
         <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-blue-400 transition-colors">Multiplayer</h2>
         <h3 class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-md inline-block mb-1 font-bold">ONLINE</h3>
@@ -102,7 +102,7 @@
     function confirmSpectate() {
         const code = document.getElementById('specInput').value.trim().toUpperCase();
         if(code) {
-          window.location.href = `/spectate/index.html?lobby=${code}`;
+          window.location.href = `/bigben-arcade/tictacblitz/spectate/index.html?lobby=${code}`;
         } else {
           alert("Please enter a valid lobby code.");
         }
