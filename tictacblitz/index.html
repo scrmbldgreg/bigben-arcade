@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicTacBlitz | Home</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: radial-gradient(circle at top left, #0f172a, #020617); }
+    .menu-card {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .menu-card:hover {
+      transform: translateY(-5px);
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .glow-blue:hover { box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5); }
+    .glow-purple:hover { box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.5); }
+    .glow-green:hover { box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.5); }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-white p-6">
+
+  <header class="text-center mb-12">
+    <h1 class="text-6xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic uppercase mb-2">
+      TicTacBlitz
+    </h1>
+    <!-- <p class="text-slate-500 font-bold tracking-widest uppercase text-xs">Infinity Move Edition</p> -->
+  </header>
+
+  <div class="w-full max-w-sm space-y-4">
+    
+    <button onclick="window.location.href='/solo-blitz/index.html'" class="menu-card glow-purple w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
+      <div class="text-left">
+        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-purple-400 transition-colors">Solo Blitz</h2>
+        <p class="text-xs text-slate-500 font-medium">Practice against AI</p>
+      </div>
+      <span class="text-3xl">🤖</span>
+    </button>
+
+    <button onclick="window.location.href='/blitz-by-blitz/index.html'" class="menu-card glow-blue w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
+      <div class="text-left">
+        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-blue-400 transition-colors">Multiplayer</h2>
+        <h3 class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-md inline-block mb-1 font-bold">ONLINE</h3>
+        <p class="text-xs text-slate-500 font-medium">Challenge a friend or stranger</p>
+      </div>
+      <span class="text-3xl">⚔️</span>
+    </button>
+
+    <button onclick="toggleSpecModal(true)" class="menu-card glow-green w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group text-left">
+      <div>
+        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-green-400 transition-colors">Spectate</h2>
+        <p class="text-xs text-slate-500 font-medium">Watch an ongoing match</p>
+      </div>
+      <span class="text-3xl">👁️</span>
+    </button>
+
+  </div>
+
+  <div id="specModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+    <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
+        <div class="text-center">
+            <div class="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-green-500/20">
+                <span class="text-3xl">👁️</span>
+            </div>
+            <h3 class="text-2xl font-black uppercase tracking-tight text-white">Spectate Feed</h3>
+            <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Enter code to watch live</p>
+        </div>
+        
+        <input id="specInput" type="text" placeholder="LOBBY CODE" 
+               class="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-center font-mono font-bold tracking-[0.3em] uppercase text-green-400">
+        
+        <div class="flex gap-3">
+            <button onclick="toggleSpecModal(false)" class="flex-1 bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Cancel</button>
+            <button onclick="confirmSpectate()" class="flex-1 bg-green-600 hover:bg-green-500 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-green-900/40">Watch</button>
+        </div>
+    </div>
+  </div>
+
+  <footer id="mainFooter" class="fixed bottom-6 flex flex-col items-center gap-2 opacity-60 w-full pointer-events-none">
+      <div class="h-px w-24 bg-slate-300/20"></div>
+      <div class="flex items-center gap-2">
+        <img src="https://scrmbldgreg.github.io/bingo-manila/assets/gemini-ai-logo.png" alt="Gemini Logo" class="w-4 h-4 md:w-6 md:h-6 animate-pulse">
+        <p class="text-[8px] md:text-[10px] font-bold tracking-[0.2em] uppercase">Powered by Gemini AI</p>
+      </div>
+      <p class="text-[8px] font-medium text-slate-400 tracking-wider uppercase">&copy; 2026 Big Ben Manila</p>
+  </footer>
+
+  <script>
+    function toggleSpecModal(show) {
+        const modal = document.getElementById('specModal');
+        modal.classList.toggle('hidden', !show);
+        if(show) {
+          const input = document.getElementById('specInput');
+          input.value = ''; // Clear previous entries
+          input.focus();
+        }
+    }
+
+    function confirmSpectate() {
+        const code = document.getElementById('specInput').value.trim().toUpperCase();
+        if(code) {
+          window.location.href = `/spectate/index.html?lobby=${code}`;
+        } else {
+          alert("Please enter a valid lobby code.");
+        }
+    }
+
+    // Listen for "Enter" key on the modal input
+    document.getElementById('specInput').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        confirmSpectate();
+      }
+    });
+  </script>
+</body>
+</html>
