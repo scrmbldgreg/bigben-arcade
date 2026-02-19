@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicTacBlitz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: radial-gradient(circle at top left, #0f172a, #020617); }
+    #board {
+      display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px);
+      width: 300px; height: 300px; border: 4px solid #1e293b; border-radius: 1rem;
+      overflow: hidden; background: #0f172a;
+    }
+    .cell {
+      border: 1px solid #1e293b; display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; font-weight: 900; cursor: pointer; transition: all 0.2s;
+    }
+    .player-column { transition: all 0.3s ease; width: 220px; border: 2px solid #1e293b; border-radius: 1.5rem; padding: 2rem 1rem; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; }
+    .turn-glow-active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+    .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 0.5rem 1.5rem; border-radius: 99px; font-size: 0.8rem; font-weight: bold; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-white p-4 overflow-hidden relative">
+
+  <h1 class="text-5xl font-black mb-6 tracking-tighter bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic text-center uppercase">
+    TicTacBlitz
+  </h1>
+
+  <div id="abandon-buffer" class="hidden mb-6 p-4 bg-red-900/40 border border-red-500/50 rounded-2xl text-center w-full max-w-sm">
+    <p id="abandon-text" class="text-red-400 font-bold text-sm"></p>
+  </div>
+
+  <div id="lobby-setup" class="w-full max-w-sm space-y-4 bg-slate-900/80 p-8 rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl">
+    <div class="flex p-1 bg-slate-950 rounded-xl">
+        <button id="tabCreate" class="flex-1 py-2 rounded-lg bg-blue-600 font-bold transition-all">Create</button>
+        <button id="tabJoin" class="flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all">Join</button>
+    </div>
+    <input id="playerName" placeholder="Your Name" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+    <input id="lobbyId" placeholder="Lobby Name" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+    <button id="actionBtn" class="w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg">Create Lobby</button>
+    
+    <div class="pt-2 text-center">
+        <button onclick="window.location.href='../index.html'" class="text-[10px] text-slate-500 uppercase font-bold hover:text-white transition-colors">Back to Menu</button>
+    </div>
+  </div>
+
+  <div id="waiting-room" class="hidden w-full max-w-sm space-y-6 bg-slate-900 p-8 rounded-3xl border border-slate-800 relative shadow-2xl">
+    <div class="flex justify-between items-start">
+        <div>
+            <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Lobby Code</p>
+            <h2 class="text-xl font-bold italic text-blue-400 cursor-pointer hover:underline leading-none" id="displayLobbyName"></h2>
+        </div>
+        <button id="exitLobbyBtn" class="text-[10px] bg-red-900/20 text-red-500 border border-red-500/30 px-3 py-1 rounded hover:bg-red-500 hover:text-white transition-all mt-1 uppercase font-bold">Exit</button>
+    </div>
+    
+    <div id="lobby-stats" class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 flex justify-around text-xs font-bold text-slate-400 italic">
+        <div><span id="lobbyName1">Host</span>: <span id="lobbyScore1" class="text-white">0</span></div>
+        <div><span id="lobbyName2">Guest</span>: <span id="lobbyScore2" class="text-white">0</span></div>
+    </div>
+
+    <div class="space-y-4 text-center">
+        <p id="pickerPrompt" class="text-xs text-slate-500 uppercase tracking-widest italic font-medium">Waiting...</p>
+        <div class="flex gap-4">
+            <button id="pickX" class="flex-1 py-4 rounded-xl border-2 border-slate-700 font-black text-2xl disabled:opacity-20 disabled:cursor-not-allowed">X</button>
+            <button id="pickO" class="flex-1 py-4 rounded-xl border-2 border-slate-700 font-black text-2xl disabled:opacity-20 disabled:cursor-not-allowed">O</button>
+        </div>
+    </div>
+    <div class="flex flex-col gap-2 pt-4">
+        <button id="readyBtn" class="w-full bg-slate-800 py-3 rounded-xl font-bold border border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">Mark Ready</button>
+        <button id="startMatchBtn" class="hidden w-full bg-blue-600 py-3 rounded-xl font-black uppercase tracking-widest disabled:opacity-50 shadow-lg">Start Match</button>
+    </div>
+    <p id="waitStatus" class="text-xs text-slate-500 italic h-4 text-center"></p>
+  </div>
+
+  <div id="game" class="hidden flex flex-row items-center justify-center gap-12 w-full max-w-6xl">
+    
+    <div id="card1" class="player-column">
+        <p id="name1" class="text-xs font-bold text-slate-400 uppercase tracking-widest truncate">---</p>
+        <p id="role1" class="text-5xl font-black">?</p>
+        <p class="text-sm font-black text-slate-300">SCORE: <span id="score1" class="text-white">0</span></p>
+    </div>
+
+    <div class="flex flex-col items-center">
+        <div id="board" class="shadow-2xl"></div>
+        <div class="mt-8 flex flex-col items-center">
+            <span id="timerDisplay" class="text-5xl font-black font-mono text-white tracking-tighter">5.0</span>
+            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mt-2">Blitz Timer</span>
+        </div>
+        <button id="newGameBtn" class="hidden mt-6 bg-white text-black px-10 py-3 rounded-xl font-black uppercase text-xs tracking-tighter shadow-lg hover:bg-slate-200 transition-all">Choose Side</button>
+    </div>
+
+    <div id="card2" class="player-column">
+        <p id="name2" class="text-xs font-bold text-slate-400 uppercase tracking-widest truncate">---</p>
+        <p id="role2" class="text-5xl font-black">?</p>
+        <p class="text-sm font-black text-slate-300">SCORE: <span id="score2" class="text-white">0</span></p>
+    </div>
+
+    <button id="exitGameBtn" class="fixed bottom-8 right-8 bg-red-600/20 border border-red-600/50 text-red-500 px-6 py-2 rounded-lg text-xs font-black hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest shadow-xl">Abandon Match</button>
+  </div>
+
+  <div id="toast" class="toast">Link Copied!</div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const firebaseConfig = { apiKey: "AIzaSyBSaKTzhqAU7EGgB2R614dx6LYUHmak2hE", authDomain: "tictactoe-72e15.firebaseapp.com", projectId: "tictactoe-72e15" };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let playerUid = Math.random().toString(36).substring(7), playerRole = null, playerName = "", lobbyRef = null, timerInterval = null, unsub = null;
+    let mode = 'create';
+
+    const tabCreate = document.getElementById('tabCreate'), tabJoin = document.getElementById('tabJoin');
+    const actionBtn = document.getElementById('actionBtn'), lobbyInput = document.getElementById('lobbyId');
+    const waitRoom = document.getElementById('waiting-room'), gameArea = document.getElementById('game'), setupArea = document.getElementById('lobby-setup');
+    const abandonBuffer = document.getElementById('abandon-buffer'), abandonText = document.getElementById('abandon-text');
+
+    const savedMsg = sessionStorage.getItem('abandon_msg');
+    if (savedMsg) { abandonBuffer.classList.remove('hidden'); abandonText.textContent = savedMsg; sessionStorage.removeItem('abandon_msg'); }
+
+    tabCreate.onclick = () => { mode = 'create'; tabCreate.className = 'flex-1 py-2 rounded-lg bg-blue-600 font-bold transition-all'; tabJoin.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; actionBtn.className = 'w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg'; actionBtn.textContent = 'Create Lobby'; };
+    tabJoin.onclick = () => { mode = 'join'; tabJoin.className = 'flex-1 py-2 rounded-lg bg-green-600 font-bold transition-all'; tabCreate.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; actionBtn.className = 'w-full bg-green-600 hover:bg-green-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg'; actionBtn.textContent = 'Join Lobby'; };
+
+    const boardEl = document.getElementById('board');
+    for (let i = 0; i < 9; i++) {
+        const c = document.createElement('div'); c.id = `cell-${i}`; c.className = 'cell';
+        c.onclick = () => makeMove(i); boardEl.appendChild(c);
+    }
+
+    document.getElementById('displayLobbyName').onclick = () => {
+        const url = `${window.location.origin}${window.location.pathname}?lobby=${document.getElementById('displayLobbyName').textContent}`;
+        navigator.clipboard.writeText(url);
+        const t = document.getElementById('toast'); t.style.opacity = 1;
+        setTimeout(() => t.style.opacity = 0, 2000);
+    };
+
+    actionBtn.onclick = async () => {
+        playerName = document.getElementById('playerName').value.trim();
+        if (!playerName) return alert("Enter name");
+        let lid = lobbyInput.value.trim().replace(/\s+/g, '-');
+        if (!lid && mode === 'create') lid = Math.random().toString(36).substring(2, 7).toUpperCase();
+        if (!lid) return alert("Lobby name required!");
+
+        lobbyRef = doc(db, "lobbies", lid);
+        const snap = await getDoc(lobbyRef);
+        if (mode === 'create') {
+            if (snap.exists()) return alert("Lobby Name Taken!");
+            await setDoc(lobbyRef, { board: Array(9).fill(""), turn: "X", piecesOrder: {X:[], O:[]}, players: [{uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: true}], winner: null, started: false, lastMoveTime: Date.now(), abander: null, loserUid: null });
+        } else {
+            if (!snap.exists()) return alert("Not found!");
+            const d = snap.data();
+            if (d.players.length >= 2) return alert("Full!");
+            if (d.players.some(p => p.name.toLowerCase() === playerName.toLowerCase())) return alert("Name taken!");
+            await updateDoc(lobbyRef, { players: arrayUnion({uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: false}) });
+        }
+        enterWaitingRoom(lid);
+    };
+
+    function enterWaitingRoom(lid) {
+        setupArea.classList.add('hidden'); waitRoom.classList.remove('hidden'); gameArea.classList.add('hidden'); abandonBuffer.classList.add('hidden');
+        document.getElementById('displayLobbyName').textContent = lid;
+
+        if (unsub) unsub();
+        unsub = onSnapshot(lobbyRef, (snap) => {
+            const d = snap.data(); if (!d) { location.reload(); return; }
+            if (d.abander && d.abander !== playerName) {
+                const p1 = d.players[0], p2 = d.players[1];
+                sessionStorage.setItem('abandon_msg', `${d.abander} abandoned match. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
+                location.reload(); return;
+            }
+            const me = d.players.find(p => p.uid === playerUid);
+            if (!me) { location.reload(); return; }
+            playerRole = me.role;
+
+            const p1 = d.players[0], p2 = d.players[1];
+            document.getElementById('lobbyName1').textContent = p1 ? p1.name : "Host";
+            document.getElementById('lobbyScore1').textContent = p1 ? p1.score : 0;
+            document.getElementById('lobbyName2').textContent = p2 ? p2.name : "Guest";
+            document.getElementById('lobbyScore2').textContent = p2 ? p2.score : 0;
+
+            const pickPrompt = document.getElementById('pickerPrompt');
+            const xBtn = document.getElementById('pickX'), oBtn = document.getElementById('pickO');
+            const xTaken = d.players.some(p => p.role === 'X'), oTaken = d.players.some(p => p.role === 'O');
+            const priorityUid = d.loserUid || d.players.find(p => p.isHost).uid;
+            const hasPriorityPicked = d.players.some(p => p.uid === priorityUid && p.role !== null);
+            
+            let isMyTurnToPick = (playerUid === priorityUid) || hasPriorityPicked;
+            if (playerUid === priorityUid) pickPrompt.textContent = d.loserUid ? "Your turn to pick side first!" : "Host picks side first!";
+            else pickPrompt.textContent = hasPriorityPicked ? "Your turn to pick!" : "Waiting for prioritized player...";
+
+            xBtn.disabled = !isMyTurnToPick || (xTaken && playerRole !== 'X');
+            oBtn.disabled = !isMyTurnToPick || (oTaken && playerRole !== 'O');
+            xBtn.className = `flex-1 py-4 rounded-xl border-2 font-black text-2xl transition-all ${playerRole === 'X' ? 'border-blue-500 bg-blue-500/20 shadow-[0_0_10px_rgba(96,165,250,0.3)]' : xTaken ? 'border-slate-800 opacity-20' : 'border-slate-700'}`;
+            oBtn.className = `flex-1 py-4 rounded-xl border-2 font-black text-2xl transition-all ${playerRole === 'O' ? 'border-pink-500 bg-pink-500/20 shadow-[0_0_10px_rgba(244,114,182,0.3)]' : oTaken ? 'border-slate-800 opacity-20' : 'border-slate-700'}`;
+
+            const readyBtn = document.getElementById('readyBtn');
+            readyBtn.disabled = !playerRole;
+            const everyoneReady = d.players.length === 2 && d.players.every(p => p.ready && p.role);
+            readyBtn.textContent = me.ready ? "✓ Ready" : "Mark Ready";
+            readyBtn.className = `w-full py-3 rounded-xl font-bold transition-all ${me.ready ? 'bg-green-600 border-green-500 shadow-lg' : 'bg-slate-700 border-slate-600 shadow-md'}`;
+            
+            if (me.isHost) {
+                document.getElementById('startMatchBtn').classList.toggle('hidden', false);
+                document.getElementById('startMatchBtn').disabled = !everyoneReady;
+            }
+            
+            const statusEl = document.getElementById('waitStatus');
+            if (d.players.length < 2) statusEl.textContent = "Waiting for opponent to join...";
+            else if (everyoneReady) statusEl.textContent = me.isHost ? "" : "Waiting for Host to start match...";
+            else statusEl.textContent = !me.role ? "Pick your side above!" : (me.ready ? "Waiting for opponent..." : "Click Mark Ready!");
+
+            if (d.started && d.players.length === 2) runGame(lid);
+            else { waitRoom.classList.remove('hidden'); gameArea.classList.add('hidden'); }
+        });
+    }
+
+    async function exitGame(isAbandon = false) {
+        const snap = await getDoc(lobbyRef);
+        if (snap.exists()) {
+            const d = snap.data();
+            const me = d.players.find(p => p.uid === playerUid);
+            if (isAbandon) {
+                const p1 = d.players[0], p2 = d.players[1];
+                sessionStorage.setItem('abandon_msg', `You abandoned match. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
+                await updateDoc(lobbyRef, { abander: playerName });
+            }
+            if (me?.isHost) await deleteDoc(lobbyRef);
+            else if (me) await updateDoc(lobbyRef, { players: arrayRemove(me) });
+        }
+        location.reload();
+    }
+
+    document.getElementById('exitLobbyBtn').onclick = () => exitGame(false);
+    document.getElementById('exitGameBtn').onclick = () => exitGame(true);
+    document.getElementById('pickX').onclick = () => selectRole('X');
+    document.getElementById('pickO').onclick = () => selectRole('O');
+    document.getElementById('readyBtn').onclick = () => toggleReady();
+    document.getElementById('startMatchBtn').onclick = async () => await updateDoc(lobbyRef, { started: true, lastMoveTime: Date.now() });
+
+    async function selectRole(role) {
+        const snap = await getDoc(lobbyRef);
+        const d = snap.data();
+        const me = d.players.find(p => p.uid === playerUid);
+        const priorityUid = d.loserUid || d.players.find(p => p.isHost).uid;
+        const hasPriorityPicked = d.players.some(p => p.uid === priorityUid && p.role !== null);
+        if (playerUid !== priorityUid && !hasPriorityPicked) return;
+        let newRole = (me.role === role) ? null : role;
+        if (newRole && d.players.some(p => p.role === newRole && p.uid !== playerUid)) return;
+        const newPlayers = d.players.map(p => p.uid === playerUid ? {...p, role: newRole, ready: false} : p);
+        await updateDoc(lobbyRef, { players: newPlayers });
+    }
+
+    async function toggleReady() {
+        if (!playerRole) return;
+        const snap = await getDoc(lobbyRef);
+        const newPlayers = snap.data().players.map(p => p.uid === playerUid ? {...p, ready: !p.ready} : p);
+        await updateDoc(lobbyRef, { players: newPlayers });
+    }
+
+    function runGame(lid) {
+        waitRoom.classList.add('hidden'); gameArea.classList.remove('hidden');
+        onSnapshot(lobbyRef, (snap) => {
+            const d = snap.data(); if (!d || !d.started || d.players.length < 2) return;
+            const p1 = d.players[0], p2 = d.players[1];
+            
+            document.getElementById('name1').textContent = p1?.name || "Host";
+            document.getElementById('score1').textContent = p1?.score || 0;
+            document.getElementById('role1').textContent = p1?.role || "?";
+            document.getElementById('role1').className = `text-5xl font-black ${p1?.role === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+
+            document.getElementById('name2').textContent = p2?.name || "Guest";
+            document.getElementById('score2').textContent = p2?.score || 0;
+            document.getElementById('role2').textContent = p2?.role || "?";
+            document.getElementById('role2').className = `text-5xl font-black ${p2?.role === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+
+            document.getElementById('card1').className = `player-column ${d.turn === p1.role ? 'turn-glow-active' : ''}`;
+            document.getElementById('card2').className = `player-column ${d.turn === p2.role ? 'turn-glow-active' : ''}`;
+
+            renderBoard(d.board, d.piecesOrder, d.turn);
+            startTimer(d.lastMoveTime, d.turn, d.winner, d.board);
+            if (d.winner) document.getElementById('newGameBtn').classList.remove('hidden');
+            else document.getElementById('newGameBtn').classList.add('hidden');
+        });
+    }
+
+    function startTimer(lastTime, turn, winner, curBoard) {
+        clearInterval(timerInterval);
+        if (winner) return;
+        timerInterval = setInterval(async () => {
+            const rem = Math.max(0, 5 - (Date.now() - lastTime) / 1000).toFixed(1);
+            document.getElementById('timerDisplay').textContent = rem;
+            if (rem <= 0 && playerRole === turn) {
+                clearInterval(timerInterval);
+                const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+                const opp = turn === "X" ? "O" : "X";
+                let spot = -1;
+                for (let c of wins) {
+                    const vals = c.map(i => curBoard[i]);
+                    if (vals.filter(v => v === opp).length === 2 && vals.indexOf("") !== -1) { spot = c[vals.indexOf("")]; break; }
+                }
+                if (spot === -1) spot = curBoard.indexOf("");
+                if (spot !== -1) makeMove(spot);
+            }
+        }, 100);
+    }
+
+    async function makeMove(i) {
+        const snap = await getDoc(lobbyRef);
+        const d = snap.data();
+        if (d.winner || d.turn !== playerRole || d.board[i] !== "") return;
+        let nb = [...d.board], no = { ...d.piecesOrder };
+        if (no[playerRole].length < 3) { nb[i] = playerRole; no[playerRole].push(i); }
+        else { const old = no[playerRole].shift(); nb[old] = ""; nb[i] = playerRole; no[playerRole].push(i); }
+        const win = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].some(c => c.every(idx => nb[idx] === playerRole));
+        if (win) {
+            const loser = d.players.find(p => p.role !== playerRole);
+            const up = d.players.map(p => p.role === playerRole ? {...p, score: p.score + 1} : p);
+            await updateDoc(lobbyRef, { board: nb, piecesOrder: no, winner: playerRole, players: up, lastMoveTime: Date.now(), loserUid: loser.uid });
+        } else { await updateDoc(lobbyRef, { board: nb, piecesOrder: no, turn: playerRole === "X" ? "O" : "X", lastMoveTime: Date.now() }); }
+    }
+
+    function renderBoard(b, o, curr) {
+        b.forEach((v, i) => {
+            const c = document.getElementById(`cell-${i}`);
+            c.textContent = v;
+            c.className = `cell ${v === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+            if (curr === playerRole && v === playerRole && o[playerRole].length === 3 && o[playerRole][0] === i) c.classList.add("opacity-30");
+        });
+    }
+
+    document.getElementById('newGameBtn').onclick = async () => {
+        const snap = await getDoc(lobbyRef);
+        const resetPlayers = snap.data().players.map(p => ({...p, ready: false, role: null}));
+        await updateDoc(lobbyRef, { board: Array(9).fill(""), turn: "X", piecesOrder: {X:[], O:[]}, winner: null, started: false, players: resetPlayers });
+    };
+
+    const urlLobby = new URLSearchParams(window.location.search).get('lobby');
+    if (urlLobby) { lobbyInput.value = urlLobby; tabJoin.click(); }
+  </script>
+</body>
+</html>
