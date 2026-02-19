@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solo Blitz | TicTacBlitz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: radial-gradient(circle at top left, #0f172a, #020617); }
+        #board {
+            display: grid; grid-template-columns: repeat(3, 100px); grid-template-rows: repeat(3, 100px);
+            width: 300px; height: 300px; border: 4px solid #1e293b; border-radius: 1rem;
+            overflow: hidden; background: #0f172a;
+        }
+        .cell {
+            border: 1px solid #1e293b; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; font-weight: 900; cursor: pointer; transition: all 0.2s;
+        }
+        .player-column { transition: all 0.3s ease; width: 220px; border: 2px solid #1e293b; border-radius: 1.5rem; padding: 2rem 1rem; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; }
+        .turn-glow-active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+        .cell.fading { opacity: 0.3; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen text-white p-4 overflow-hidden relative">
+
+    <h1 class="text-4xl font-black mb-8 tracking-tighter bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic uppercase">
+        Solo Blitz
+    </h1>
+
+    <div id="side-selection" class="w-full max-w-sm space-y-6 bg-slate-900/80 p-8 rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl text-center">
+        <p class="text-xs text-slate-500 uppercase tracking-widest font-bold">Pick Your Side</p>
+        <div class="flex gap-4">
+            <button onclick="startGame('X')" class="flex-1 py-6 rounded-2xl border-2 border-slate-700 hover:border-blue-500 transition-all font-black text-4xl text-blue-400 bg-slate-950">X</button>
+            <button onclick="startGame('O')" class="flex-1 py-6 rounded-2xl border-2 border-slate-700 hover:border-pink-500 transition-all font-black text-4xl text-pink-500 bg-slate-950">O</button>
+        </div>
+        <button onclick="window.location.href='../index.html'" class="text-[10px] text-slate-500 uppercase font-bold hover:text-white transition-colors">Back to Menu</button>
+    </div>
+
+    <div id="game-area" class="hidden flex flex-row items-center justify-center gap-12 w-full max-w-6xl">
+        
+        <div id="card1" class="player-column">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Player</p>
+            <p id="playerRoleIcon" class="text-6xl font-black">?</p>
+            <p class="text-sm font-black text-slate-300">Score: <span id="score1" class="text-white">0</span></p>
+        </div>
+
+        <div class="flex flex-col items-center">
+            <div id="board" class="shadow-2xl"></div>
+            <div class="mt-8 flex flex-col items-center">
+                <span id="timerDisplay" class="text-5xl font-black font-mono text-white tracking-tighter">5.0</span>
+                <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mt-2">Blitz Timer</span>
+            </div>
+            
+            <div id="end-game-controls" class="hidden mt-6 flex gap-4">
+                <button id="playAgainBtn" class="bg-white text-black px-6 py-2 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-slate-200 transition-all">Play Again</button>
+                <button id="changeSideBtn" class="bg-slate-800 text-white border border-slate-700 px-6 py-2 rounded-xl font-black uppercase text-xs shadow-lg hover:bg-slate-700 transition-all">Select Side</button>
+            </div>
+        </div>
+
+        <div id="card2" class="player-column">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">CPU (Expert)</p>
+            <p id="cpuRoleIcon" class="text-6xl font-black">?</p>
+            <p class="text-sm font-black text-slate-300">Score: <span id="score2" class="text-white">0</span></p>
+        </div>
+
+        <button onclick="location.reload()" class="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 text-slate-400 px-6 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">Exit Game</button>
+    </div>
+
+    <script>
+        let board = Array(9).fill("");
+        let piecesOrder = { X: [], O: [] };
+        let scores = { X: 0, O: 0 };
+        let playerRole = "";
+        let cpuRole = "";
+        let currentTurn = "X";
+        let gameActive = false;
+        let timer = 5.0;
+        let timerInterval;
+        let lastTickSec = 5;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+        function playTick(freq = 440) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function startGame(side) {
+            playerRole = side;
+            cpuRole = side === 'X' ? 'O' : 'X';
+            document.getElementById('side-selection').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+            
+            const pIcon = document.getElementById('playerRoleIcon');
+            pIcon.textContent = playerRole;
+            pIcon.className = `text-6xl font-black ${playerRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+            
+            const cIcon = document.getElementById('cpuRoleIcon');
+            cIcon.textContent = cpuRole;
+            cIcon.className = `text-6xl font-black ${cpuRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+
+            initBoard();
+        }
+
+        function initBoard() {
+            board = Array(9).fill("");
+            piecesOrder = { X: [], O: [] };
+            currentTurn = "X";
+            gameActive = true;
+            lastTickSec = 5;
+            
+            document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
+            document.getElementById('end-game-controls').classList.add('hidden');
+
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.id = `cell-${i}`;
+                cell.onclick = () => handlePlayerMove(i);
+                boardEl.appendChild(cell);
+            }
+
+            updateGlow();
+            startTimer();
+            if (cpuRole === "X") setTimeout(cpuLogic, 800);
+        }
+
+        function startTimer() {
+            timer = 5.0;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!gameActive) return clearInterval(timerInterval);
+                timer -= 0.1;
+                document.getElementById('timerDisplay').textContent = Math.max(0, timer).toFixed(1);
+                
+                if (Math.floor(timer) < lastTickSec && timer > 0) {
+                    playTick(timer < 2 ? 880 : 440);
+                    lastTickSec = Math.floor(timer);
+                }
+
+                if (timer <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeout();
+                }
+            }, 100);
+        }
+
+        function handleTimeout() {
+            const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+            if (empties.length > 0) {
+                const randomSpot = empties[Math.floor(Math.random() * empties.length)];
+                makeMove(randomSpot);
+            }
+        }
+
+        function handlePlayerMove(i) {
+            if (!gameActive || currentTurn !== playerRole || board[i] !== "") return;
+            makeMove(i);
+        }
+
+        function makeMove(i) {
+            let role = currentTurn;
+            if (piecesOrder[role].length === 3) {
+                const oldIndex = piecesOrder[role].shift();
+                board[oldIndex] = "";
+            }
+            board[i] = role;
+            piecesOrder[role].push(i);
+            renderBoard();
+            
+            if (checkWin(role)) {
+                endGame(role);
+            } else {
+                currentTurn = currentTurn === "X" ? "O" : "X";
+                updateGlow();
+                startTimer();
+                if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 600);
+            }
+        }
+
+        function cpuLogic() {
+            if (!gameActive) return;
+            let move = findBestMove(cpuRole); 
+            if (move === null) move = findBestMove(playerRole); 
+            if (move === null) {
+                const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+                move = empties[Math.floor(Math.random() * empties.length)];
+            }
+            if (move !== null) makeMove(move);
+        }
+
+        function findBestMove(role) {
+            for (let combo of winCombos) {
+                const vals = combo.map(i => board[i]);
+                const count = vals.filter(v => v === role).length;
+                const empty = vals.indexOf("");
+                if (count === 2 && empty !== -1) return combo[empty];
+            }
+            return null;
+        }
+
+        function checkWin(role) {
+            return winCombos.some(combo => combo.every(i => board[i] === role));
+        }
+
+        function renderBoard() {
+            board.forEach((val, i) => {
+                const cell = document.getElementById(`cell-${i}`);
+                cell.textContent = val;
+                cell.className = `cell ${val === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+                if (piecesOrder[val] && piecesOrder[val].length === 3 && piecesOrder[val][0] === i) {
+                    cell.classList.add('fading');
+                }
+            });
+        }
+
+        function updateGlow() {
+            document.getElementById('card1').classList.toggle('turn-glow-active', currentTurn === playerRole);
+            document.getElementById('card2').classList.toggle('turn-glow-active', currentTurn === cpuRole);
+        }
+
+        function endGame(winner) {
+            gameActive = false;
+            clearInterval(timerInterval);
+            const timerDisp = document.getElementById('timerDisplay');
+            
+            if (winner === playerRole) {
+                scores.X++; 
+                timerDisp.textContent = "WIN";
+                timerDisp.className = "text-5xl font-black font-mono text-blue-400 tracking-tighter";
+            } else {
+                scores.O++;
+                timerDisp.textContent = "LOST";
+                timerDisp.className = "text-5xl font-black font-mono text-pink-500 tracking-tighter";
+            }
+            
+            document.getElementById('score1').textContent = scores.X;
+            document.getElementById('score2').textContent = scores.O;
+            document.getElementById('end-game-controls').classList.remove('hidden');
+        }
+
+        document.getElementById('playAgainBtn').onclick = () => initBoard();
+        
+        document.getElementById('changeSideBtn').onclick = () => {
+            document.getElementById('game-area').classList.add('hidden');
+            document.getElementById('side-selection').classList.remove('hidden');
+        };
+    </script>
+</body>
+</html>
