@@ -314,12 +314,12 @@
                                 <div class="flex gap-2 mt-1">
                                     ${isHost && id !== myId ? `<button onclick="kickPlayer('${id}')" class="text-[7px] text-red-500 font-bold uppercase">Kick</button>` : ''}
                                     ${isHost ? `
-                                        <button onclick="subtractCoin('${id}')" class="text-[7px] text-slate-400 font-bold uppercase tracking-widest">-1 💀</button>
-                                        <button onclick="addCoin('${id}')" class="text-[7px] text-green-500 font-bold uppercase tracking-widest">+1 🏆</button>
+                                        <button onclick="subtractCoin('${id}')" class="text-[7px] text-slate-400 font-bold uppercase tracking-widest">-1 💰</button>
+                                        <button onclick="addCoin('${id}')" class="text-[7px] text-green-500 font-bold uppercase tracking-widest">+1 💰</button>
                                     ` : ''}
                                 </div>
                             </div>
-                            <span class="text-xs font-black">${p.coins} 🏆</span>
+                            <span class="text-xs font-black">${p.coins} 💰</span>
                         </div>
                     `;
                 }).join('');
