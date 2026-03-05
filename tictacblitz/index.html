@@ -2,204 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TicTacBlitz | Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Big Ben Manila Arcade</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: radial-gradient(circle at top left, #0f172a, #020617); }
-    .menu-card {
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .menu-card:hover {
-      transform: translateY(-5px);
-      background: rgba(255, 255, 255, 0.05);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-    .glow-blue:hover { box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5); }
-    .glow-purple:hover { box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.5); }
-    .glow-green:hover { box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.5); }
+    :root { --london-blue: #002147; --royal-red: #991b1b; }
+    .bg-london-blue { background-color: var(--london-blue); }
+    .bg-royal-red { background-color: var(--royal-red); }
     
-    /* Custom Range Slider Styling */
-    input[type=range] { appearance: none; background: transparent; cursor: pointer; }
-    input[type=range]::-webkit-slider-runnable-track {
-      background: rgba(255, 255, 255, 0.1);
-      height: 6px;
-      border-radius: 10px;
+    html, body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Removes scroll */
+        background-color: #f8fafc;
     }
-    input[type=range]::-webkit-slider-thumb {
-      appearance: none;
-      height: 18px;
-      width: 18px;
-      background: white;
-      border-radius: 50%;
-      margin-top: -6px;
-      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+
+    body {
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Vertical Center */
+        align-items: center;
     }
+
+    @keyframes pop-up { 0% { transform: scale(0.5); opacity: 0; } 80% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+    .animate-pop-up { animation: pop-up 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen text-white p-6">
+<body>
 
-  <header class="text-center mb-12">
-    <h1 class="text-6xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic uppercase mb-2">
-      TicTacBlitz
-    </h1>
-  </header>
+  <div id="screenChooseGame" class="flex flex-col items-center justify-center w-full px-4">
+    <div class="bg-white p-8 md:p-10 rounded-[40px] shadow-2xl w-full max-w-lg text-center border-2 border-slate-100 animate-pop-up">
 
-  <div class="w-full max-w-sm space-y-4">
-    
-    <button onclick="toggleModal('soloModal', true)" class="menu-card glow-purple w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
-      <div class="text-left">
-        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-purple-400 transition-colors">Solo Blitz</h2>
-        <p class="text-xs text-slate-500 font-medium">Practice against AI</p>
-      </div>
-      <span class="text-3xl">🤖</span>
-    </button>
-
-    <button onclick="toggleModal('multiModal', true)" class="menu-card glow-blue w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
-      <div class="text-left">
-        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-blue-400 transition-colors">Multiplayer</h2>
-        <h3 class="text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded-md inline-block mb-1 font-bold">ONLINE</h3>
-        <p class="text-xs text-slate-500 font-medium">Host a match</p>
-      </div>
-      <span class="text-3xl">⚔️</span>
-    </button>
-
-    <button onclick="toggleModal('specModal', true)" class="menu-card glow-green w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group text-left">
-      <div>
-        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-green-400 transition-colors">Spectate</h2>
-        <p class="text-xs text-slate-500 font-medium">Watch an ongoing match</p>
-      </div>
-      <span class="text-3xl">👁️</span>
-    </button>
-  </div>
-
-  <div id="soloModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-    <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
-        <div class="text-center">
-            <h3 class="text-2xl font-black uppercase tracking-tight text-purple-400">Solo Setup</h3>
-            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Player vs AI</p>
-        </div>
-        <div class="space-y-4">
-            <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Player Name</label>
-                <input id="soloName" type="text" placeholder="ENTER NAME" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl focus:ring-2 focus:ring-purple-500 outline-none font-bold uppercase text-purple-400 mt-1">
-            </div>
-            <div>
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Difficulty (Turn Time)</label>
-                    <span id="soloDiffDisplay" class="text-xs font-black text-purple-400 bg-purple-400/10 px-2 py-1 rounded-md">5s</span>
-                </div>
-                <input id="soloSlider" type="range" min="1" max="10" value="5" class="w-full accent-purple-500" oninput="updateDiff('soloDiffDisplay', this.value)">
-                <div class="flex justify-between text-[8px] text-slate-600 font-bold uppercase mt-1">
-                    <span>Blitz (1s)</span>
-                    <span>Relaxed (10s)</span>
-                </div>
-            </div>
-        </div>
-        <div class="flex gap-3">
-            <button onclick="toggleModal('soloModal', false)" class="flex-1 bg-slate-800 py-4 rounded-2xl text-xs font-black uppercase tracking-widest">Back</button>
-            <button onclick="startGame('solo')" class="flex-1 bg-purple-600 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-purple-900/40">Play</button>
-        </div>
+  <div class="flex flex-col items-center mb-4 md:mb-8 mt-2">
+    <div class="w-20 h-20 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden mb-2">
+      <img src="https://scrmbldgreg.github.io/bingo-manila/assets/bigbenmnl.png" alt="Big Ben Manila Logo" class="w-full h-full object-contain p-2">
     </div>
   </div>
 
-  <div id="multiModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-    <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
-        <div class="text-center">
-            <h3 class="text-2xl font-black uppercase tracking-tight text-blue-400">Host Lobby</h3>
-            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Set the Rules</p>
-        </div>
-        <div class="space-y-4">
-            <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Host Name</label>
-                <input id="multiName" type="text" placeholder="HOST" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold uppercase text-blue-400 mt-1">
-            </div>
-            <div>
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Blitz Timer</label>
-                    <span id="multiDiffDisplay" class="text-xs font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-md">5s</span>
-                </div>
-                <input id="multiSlider" type="range" min="1" max="10" value="5" class="w-full accent-blue-500" oninput="updateDiff('multiDiffDisplay', this.value)">
-            </div>
-        </div>
-        <div class="flex gap-3">
-            <button onclick="toggleModal('multiModal', false)" class="flex-1 bg-slate-800 py-4 rounded-2xl text-xs font-black uppercase tracking-widest">Back</button>
-            <button onclick="startGame('multi')" class="flex-1 bg-blue-600 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-900/40">Create</button>
-        </div>
+      <div class="mb-8">
+        <h1 class="text-3xl font-black tracking-tighter text-london-blue uppercase italic leading-tight">Big Ben Manila Arcade</span></h1>
+        <p class="text-slate-400 text-[16px] font-bold tracking-widest mt-1 uppercase">Choose Game</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/bingo" class="group relative bg-london-blue p-6 rounded-3xl transition-all hover:scale-105 active:scale-95 shadow-lg overflow-hidden text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-10"><span class="text-4xl">🎰</span></div> -->
+          <h2 class="text-white font-black uppercase italic tracking-tighter">Bingo</h2>
+          <!-- <p class="text-white/50 text-[8px] font-bold uppercase tracking-widest mt-1">Manila Edition</p> -->
+        </a>
+
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/color-game" class="group relative bg-royal-red p-6 rounded-3xl transition-all hover:scale-105 active:scale-95 shadow-lg overflow-hidden text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-10"><span class="text-4xl">🎲</span></div> -->
+          <h2 class="text-white font-black uppercase italic tracking-tighter">Color Game</h2>
+          <!-- <p class="text-white/50 text-[8px] font-bold uppercase tracking-widest mt-1">Live Draw</p> -->
+        </a>
+
+        <a href="https://scrmbldgreg.github.io/bigben-arcade/tictacblitz" class="group relative border-4 border-london-blue p-6 rounded-3xl transition-all hover:bg-slate-50 hover:scale-105 active:scale-95 shadow-md text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-10 text-london-blue"><span class="text-4xl">❌</span></div> -->
+          <h2 class="text-london-blue font-black uppercase italic tracking-tighter">TicTacBlitz</h2>
+          <!-- <p class="text-slate-400 text-[8px] font-bold uppercase tracking-widest mt-1">Classic Battle</p> -->
+        </a>
+
+        <a href="https://scrmbldgreg.github.io/feather-dash" class="group relative bg-yellow-400 p-6 rounded-3xl transition-all hover:scale-105 active:scale-95 shadow-lg overflow-hidden text-left block">
+          <!-- <div class="absolute top-0 right-0 p-2 opacity-20"><span class="text-4xl">🐦</span></div> -->
+          <h2 class="text-yellow-900 font-black uppercase italic tracking-tighter">Feather Dash</h2>
+          <!-- <p class="text-yellow-800/60 text-[8px] font-bold uppercase tracking-widest mt-1">Feather Dash</p> -->
+        </a>
+      </div>
     </div>
   </div>
 
-  <div id="specModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-    <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
-        <div class="text-center">
-            <h3 class="text-2xl font-black uppercase tracking-tight text-green-400">Spectate</h3>
-            <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Enter Lobby Code</p>
-        </div>
-        <input id="specInput" type="text" placeholder="CODE" class="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-center font-mono font-bold tracking-[0.3em] uppercase text-green-400">
-        <div class="flex gap-3">
-            <button onclick="toggleModal('specModal', false)" class="flex-1 bg-slate-800 py-4 rounded-2xl text-xs font-black uppercase tracking-widest">Cancel</button>
-            <button onclick="confirmSpectate()" class="flex-1 bg-green-600 py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-green-900/40">Watch</button>
-        </div>
+<footer id="mainFooter" class="fixed bottom-6 flex flex-col items-center gap-2 opacity-60 w-full pointer-events-none">
+    <div class="h-px w-24 bg-slate-300"></div>
+    <div class="flex items-center gap-2">
+      <img src="https://scrmbldgreg.github.io/bingo-manila/assets/gemini-ai-logo.png" alt="Gemini Logo" class="w-4 h-4 md:w-6 md:h-6 animate-pulse">
+      <p class="text-[8px] md:text-[10px] font-bold tracking-[0.2em] text-london-blue uppercase">Powered by Gemini AI</p>
     </div>
-  </div>
+    <p class="text-[8px] font-medium text-slate-400 tracking-wider uppercase">&copy; 2026 Big Ben Manila</p>
+</footer>
 
-  <footer class="fixed bottom-6 flex flex-col items-center gap-2 opacity-60 w-full pointer-events-none text-center">
-      <div class="h-px w-24 bg-slate-300/20 mb-2"></div>
-      <p class="text-[8px] font-bold tracking-[0.2em] uppercase">Powered by Gemini AI</p>
-      <p class="text-[8px] font-medium text-slate-400 tracking-wider uppercase">&copy; 2026 Big Ben Manila</p>
-  </footer>
-
-  <script>
-    // General Modal Toggle
-    function toggleModal(id, show) {
-        document.getElementById(id).classList.toggle('hidden', !show);
-        if(show) {
-            const firstInput = document.getElementById(id).querySelector('input');
-            if(firstInput) firstInput.focus();
-        }
-    }
-
-    // Update the visual timer display (1s, 2s, etc)
-    function updateDiff(displayId, value) {
-        document.getElementById(displayId).innerText = value + 's';
-    }
-
-    // Handle Game Redirection
-    function startGame(mode) {
-        let name, timer, path;
-
-        if(mode === 'solo') {
-            name = document.getElementById('soloName').value.trim() || "Player";
-            timer = document.getElementById('soloSlider').value;
-            path = '/bigben-arcade/tictacblitz/solo-blitz/';
-            window.location.href = `${path}?name=${encodeURIComponent(name)}&timer=${timer}`;
-        } else {
-            name = document.getElementById('multiName').value.trim() || "Host";
-            timer = document.getElementById('multiSlider').value;
-            path = '/bigben-arcade/tictacblitz/blitz-by-blitz/';
-            // Passing role=host ensures the next page knows this user sets the rules
-            window.location.href = `${path}?name=${encodeURIComponent(name)}&timer=${timer}&role=host`;
-        }
-    }
-
-    function confirmSpectate() {
-        const code = document.getElementById('specInput').value.trim().toUpperCase();
-        if(code) {
-          window.location.href = `/bigben-arcade/tictacblitz/spectate/index.html?lobby=${code}`;
-        } else {
-          alert("Enter lobby code");
-        }
-    }
-
-    // Enter Key Support
-    document.addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') {
-          if (!document.getElementById('soloModal').classList.contains('hidden')) startGame('solo');
-          else if (!document.getElementById('multiModal').classList.contains('hidden')) startGame('multi');
-          else if (!document.getElementById('specModal').classList.contains('hidden')) confirmSpectate();
-      }
-    });
-  </script>
 </body>
 </html>
