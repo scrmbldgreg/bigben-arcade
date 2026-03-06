@@ -78,9 +78,9 @@
 
     const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-    // --- PERSISTENCE LOGIC ---
+    // --- REFRESH PERSISTENCE ---
     window.addEventListener('DOMContentLoaded', () => {
-        const saved = localStorage.getItem('solo_blitz_match');
+        const saved = localStorage.getItem('solo_blitz_session');
         if (saved) {
             const data = JSON.parse(saved);
             playerScore = data.playerScore || 0;
@@ -88,19 +88,18 @@
             document.getElementById('score1').textContent = playerScore;
             document.getElementById('score2').textContent = cpuScore;
             
-            // Auto-resume if they were in a match
-            if (data.playerRole) {
+            if (data.playerRole && data.gameActive) {
                 resumeMatch(data);
             }
         }
     });
 
-    function saveMatchState() {
+    function saveMatch() {
         const state = {
             board, piecesOrder, playerScore, cpuScore, 
-            playerRole, cpuRole, currentTurn, gameActive
+            playerRole, cpuRole, currentTurn, gameActive: true
         };
-        localStorage.setItem('solo_blitz_match', JSON.stringify(state));
+        localStorage.setItem('solo_blitz_session', JSON.stringify(state));
     }
 
     function resumeMatch(data) {
@@ -109,7 +108,7 @@
         board = data.board;
         piecesOrder = data.piecesOrder;
         currentTurn = data.currentTurn;
-        gameActive = data.gameActive;
+        gameActive = true;
 
         document.getElementById('side-selection').classList.add('hidden');
         document.getElementById('game-area').classList.remove('hidden');
@@ -117,13 +116,8 @@
         setupUI();
         renderBoard();
         updateGlow();
-        
-        if (gameActive) {
-            startTimer();
-            if (currentTurn === cpuRole) setTimeout(cpuLogic, 600);
-        } else {
-            document.getElementById('end-game-controls').classList.remove('hidden');
-        }
+        startTimer();
+        if (currentTurn === cpuRole) setTimeout(cpuLogic, 600);
     }
 
     function setupUI() {
@@ -163,7 +157,7 @@
         renderBoard();
         updateGlow();
         startTimer();
-        saveMatchState();
+        saveMatch();
         if (cpuRole === "X") setTimeout(cpuLogic, 500);
     }
 
@@ -211,7 +205,7 @@
             currentTurn = currentTurn === "X" ? "O" : "X";
             updateGlow();
             startTimer();
-            saveMatchState();
+            saveMatch();
             if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 400);
         }
     }
@@ -249,6 +243,8 @@
             cell.className = `cell ${val === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
             if (piecesOrder[val] && piecesOrder[val].length === 3 && piecesOrder[val][0] === i) {
                 cell.classList.add('fading');
+            } else {
+                cell.classList.remove('fading');
             }
         });
     }
@@ -274,17 +270,22 @@
         document.getElementById('score1').textContent = playerScore;
         document.getElementById('score2').textContent = cpuScore;
         document.getElementById('end-game-controls').classList.remove('hidden');
-        saveMatchState();
+        
+        // Save score but mark match as not active so it doesn't resume into an ended game
+        localStorage.setItem('solo_blitz_session', JSON.stringify({ playerScore, cpuScore, gameActive: false }));
     }
 
     document.getElementById('playAgainBtn').onclick = () => initBoard();
     document.getElementById('changeSideBtn').onclick = () => {
-        localStorage.removeItem('solo_blitz_match'); // Reset full state to choose side
+        // Keeps score but resets roles
+        localStorage.setItem('solo_blitz_session', JSON.stringify({ playerScore, cpuScore, gameActive: false }));
         location.reload();
     };
 
+    // --- RESET ON EXIT ---
     window.confirmExit = function() {
-        if (confirm("Return to main menu? Your scores will be saved.")) {
+        if (confirm("Exit to menu? Match progress will be reset.")) {
+            localStorage.removeItem('solo_blitz_session'); // This ensures the reset
             window.location.href = '../index.html';
         }
     }
