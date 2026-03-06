@@ -84,7 +84,7 @@
     <div class="flex flex-col items-center">
         <div id="board" class="shadow-2xl"></div>
         <div class="mt-8 flex flex-col items-center">
-            <span id="timerDisplay" class="text-5xl font-black font-mono text-white tracking-tighter">5.0</span>
+            <span id="timerDisplay" class="text-5xl font-black font-mono text-white tracking-tighter">2.0</span>
             <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mt-2">Blitz Timer</span>
         </div>
         <button id="newGameBtn" class="hidden mt-6 bg-white text-black px-10 py-3 rounded-xl font-black uppercase text-xs tracking-tighter shadow-lg hover:bg-slate-200 transition-all">Choose Side</button>
@@ -100,6 +100,14 @@
   </div>
 
   <div id="toast" class="toast">Link Copied!</div>
+  <button onclick="confirmExit()" 
+        class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-red-600 hover:border-red-500 transition-all duration-300 shadow-2xl">
+    <span class="text-xl group-hover:scale-110 transition-transform">🏠</span>
+    
+    <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
+        Exit to Menu
+    </span>
+</button>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -289,7 +297,7 @@
         clearInterval(timerInterval);
         if (winner) return;
         timerInterval = setInterval(async () => {
-            const rem = Math.max(0, 5 - (Date.now() - lastTime) / 1000).toFixed(1);
+            const rem = Math.max(0, 2 - (Date.now() - lastTime) / 1000).toFixed(1);
             document.getElementById('timerDisplay').textContent = rem;
             if (rem <= 0 && playerRole === turn) {
                 clearInterval(timerInterval);
@@ -338,6 +346,25 @@
 
     const urlLobby = new URLSearchParams(window.location.search).get('lobby');
     if (urlLobby) { lobbyInput.value = urlLobby; tabJoin.click(); }
+    function confirmExit() {
+    // Check if a game is currently active
+    const isGameActive = typeof gameActive !== 'undefined' ? gameActive : false;
+    const isMultiplayer = window.location.href.includes('multiplayer') || !!document.getElementById('game');
+
+    if (isGameActive || isMultiplayer) {
+        if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
+            // If it's a multiplayer Firebase lobby, you might want to run your exitGame logic
+            if (typeof exitGame === 'function') {
+                exitGame(true); // Run abandon logic if it exists
+            } else {
+                window.location.href = '../index.html';
+            }
+        }
+    } else {
+        // Just a menu/waiting screen, exit immediately
+        window.location.href = '../index.html';
+    }
+}
   </script>
 </body>
 </html>
