@@ -19,23 +19,6 @@
         .player-column { transition: all 0.3s ease; width: 220px; border: 2px solid #1e293b; border-radius: 1.5rem; padding: 2rem 1rem; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; }
         .turn-glow-active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
         .cell.fading { opacity: 0.3; }
-
-        /* Custom Slider Styling */
-        input[type=range] { appearance: none; background: transparent; cursor: pointer; }
-        input[type=range]::-webkit-slider-runnable-track {
-            background: rgba(255, 255, 255, 0.1);
-            height: 6px;
-            border-radius: 10px;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            appearance: none;
-            height: 18px;
-            width: 18px;
-            background: white;
-            border-radius: 50%;
-            margin-top: -6px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen text-white p-4 overflow-hidden relative">
@@ -45,44 +28,18 @@
     </h1>
 
     <div id="side-selection" class="w-full max-w-sm space-y-6 bg-slate-900/80 p-8 rounded-3xl border border-white/10 backdrop-blur-md shadow-2xl text-center">
-        
-        <div class="space-y-4 text-left">
-            <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Player Name</label>
-                <input id="playerNameInput" type="text" placeholder="PLAYER 1" 
-                       class="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-bold uppercase text-purple-400 mt-1">
-            </div>
-
-            <div>
-                <div class="flex justify-between items-center mb-2">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Difficulty (Turn Time)</label>
-                    <span id="levelDisplay" class="text-xs font-black text-purple-400 bg-purple-400/10 px-2 py-1 rounded-md">5s</span>
-                </div>
-                <input id="levelSlider" type="range" min="1" max="10" value="5" 
-                       class="w-full accent-purple-500"
-                       oninput="document.getElementById('levelDisplay').innerText = this.value + 's'">
-                <div class="flex justify-between text-[8px] text-slate-600 font-bold uppercase mt-1">
-                    <span>Blitz (1s)</span>
-                    <span>Relaxed (10s)</span>
-                </div>
-            </div>
+        <p class="text-xs text-slate-500 uppercase tracking-widest font-bold">Pick Your Side</p>
+        <div class="flex gap-4">
+            <button onclick="startGame('X')" class="flex-1 py-6 rounded-2xl border-2 border-slate-700 hover:border-blue-500 transition-all font-black text-4xl text-blue-400 bg-slate-950">X</button>
+            <button onclick="startGame('O')" class="flex-1 py-6 rounded-2xl border-2 border-slate-700 hover:border-pink-500 transition-all font-black text-4xl text-pink-500 bg-slate-950">O</button>
         </div>
-
-        <div class="pt-4 border-t border-white/5">
-            <p class="text-xs text-slate-500 uppercase tracking-widest font-bold mb-4">Pick Your Side</p>
-            <div class="flex gap-4">
-                <button onclick="startGame('X')" class="flex-1 py-6 rounded-2xl border-2 border-slate-700 hover:border-blue-500 transition-all font-black text-4xl text-blue-400 bg-slate-950">X</button>
-                <button onclick="startGame('O')" class="flex-1 py-6 rounded-2xl border-2 border-slate-700 hover:border-pink-500 transition-all font-black text-4xl text-pink-500 bg-slate-950">O</button>
-            </div>
-        </div>
-
         <button onclick="window.location.href='../index.html'" class="text-[10px] text-slate-500 uppercase font-bold hover:text-white transition-colors">Back to Menu</button>
     </div>
 
     <div id="game-area" class="hidden flex flex-row items-center justify-center gap-12 w-full max-w-6xl">
         
         <div id="card1" class="player-column">
-            <p id="displayName" class="text-xs font-bold text-slate-400 uppercase tracking-widest truncate px-2">Player</p>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Player</p>
             <p id="playerRoleIcon" class="text-6xl font-black">?</p>
             <p class="text-sm font-black text-slate-300">Score: <span id="score1" class="text-white">0</span></p>
         </div>
@@ -106,21 +63,10 @@
             <p class="text-sm font-black text-slate-300">Score: <span id="score2" class="text-white">0</span></p>
         </div>
 
-        <button onclick="window.location.href='../index.html'" class="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 text-slate-400 px-6 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">Exit Game</button>
+        <button onclick="location.reload()" class="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 text-slate-400 px-6 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">Exit Game</button>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        
-        // --- UPDATED: Initial settings from URL ---
-        let configName = urlParams.get('name') || "Player";
-        let configTimer = parseFloat(urlParams.get('timer')) || 5.0;
-
-        // Pre-fill inputs on load
-        document.getElementById('playerNameInput').value = configName;
-        document.getElementById('levelSlider').value = configTimer;
-        document.getElementById('levelDisplay').innerText = configTimer + 's';
-
         let board = Array(9).fill("");
         let piecesOrder = { X: [], O: [] };
         let scores = { X: 0, O: 0 };
@@ -128,9 +74,9 @@
         let cpuRole = "";
         let currentTurn = "X";
         let gameActive = false;
-        let timer = configTimer;
+        let timer = 5.0;
         let timerInterval;
-        let lastTickSec = Math.floor(configTimer);
+        let lastTickSec = 5;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -146,14 +92,8 @@
         }
 
         function startGame(side) {
-            // --- UPDATED: Sync internal config with current input values ---
-            configName = document.getElementById('playerNameInput').value.trim() || "Player";
-            configTimer = parseFloat(document.getElementById('levelSlider').value);
-            
             playerRole = side;
             cpuRole = side === 'X' ? 'O' : 'X';
-            
-            document.getElementById('displayName').textContent = configName;
             document.getElementById('side-selection').classList.add('hidden');
             document.getElementById('game-area').classList.remove('hidden');
             
@@ -173,7 +113,7 @@
             piecesOrder = { X: [], O: [] };
             currentTurn = "X";
             gameActive = true;
-            lastTickSec = Math.floor(configTimer);
+            lastTickSec = 5;
             
             document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
             document.getElementById('end-game-controls').classList.add('hidden');
@@ -194,7 +134,7 @@
         }
 
         function startTimer() {
-            timer = configTimer; // Reset to updated difficulty
+            timer = 5.0;
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 if (!gameActive) return clearInterval(timerInterval);
