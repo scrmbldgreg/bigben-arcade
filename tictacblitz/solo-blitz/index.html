@@ -73,38 +73,66 @@
     let cpuRole = "";
     let currentTurn = "X";
     let gameActive = false;
-    let timer = 1.0; // Standardized Blitz speed
+    let timer = 1.0;
     let timerInterval;
 
-    // London-inspired Audio Context
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-    function startGame(side) {
-        playerRole = side;
-        cpuRole = side === 'X' ? 'O' : 'X';
+    // --- PERSISTENCE LOGIC ---
+    window.addEventListener('DOMContentLoaded', () => {
+        const saved = localStorage.getItem('solo_blitz_match');
+        if (saved) {
+            const data = JSON.parse(saved);
+            playerScore = data.playerScore || 0;
+            cpuScore = data.cpuScore || 0;
+            document.getElementById('score1').textContent = playerScore;
+            document.getElementById('score2').textContent = cpuScore;
+            
+            // Auto-resume if they were in a match
+            if (data.playerRole) {
+                resumeMatch(data);
+            }
+        }
+    });
+
+    function saveMatchState() {
+        const state = {
+            board, piecesOrder, playerScore, cpuScore, 
+            playerRole, cpuRole, currentTurn, gameActive
+        };
+        localStorage.setItem('solo_blitz_match', JSON.stringify(state));
+    }
+
+    function resumeMatch(data) {
+        playerRole = data.playerRole;
+        cpuRole = data.cpuRole;
+        board = data.board;
+        piecesOrder = data.piecesOrder;
+        currentTurn = data.currentTurn;
+        gameActive = data.gameActive;
+
         document.getElementById('side-selection').classList.add('hidden');
         document.getElementById('game-area').classList.remove('hidden');
         
+        setupUI();
+        renderBoard();
+        updateGlow();
+        
+        if (gameActive) {
+            startTimer();
+            if (currentTurn === cpuRole) setTimeout(cpuLogic, 600);
+        } else {
+            document.getElementById('end-game-controls').classList.remove('hidden');
+        }
+    }
+
+    function setupUI() {
         const pIcon = document.getElementById('playerRoleIcon');
         pIcon.textContent = playerRole;
         pIcon.className = `text-6xl font-black ${playerRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-        
         const cIcon = document.getElementById('cpuRoleIcon');
         cIcon.textContent = cpuRole;
         cIcon.className = `text-6xl font-black ${cpuRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-
-        initBoard();
-    }
-
-    function initBoard() {
-        board = Array(9).fill("");
-        piecesOrder = { X: [], O: [] };
-        currentTurn = "X";
-        gameActive = true;
-        
-        document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
-        document.getElementById('end-game-controls').classList.add('hidden');
 
         const boardEl = document.getElementById('board');
         boardEl.innerHTML = '';
@@ -115,20 +143,37 @@
             cell.onclick = () => handlePlayerMove(i);
             boardEl.appendChild(cell);
         }
+    }
 
+    function startGame(side) {
+        playerRole = side;
+        cpuRole = side === 'X' ? 'O' : 'X';
+        document.getElementById('side-selection').classList.add('hidden');
+        document.getElementById('game-area').classList.remove('hidden');
+        setupUI();
+        initBoard();
+    }
+
+    function initBoard() {
+        board = Array(9).fill("");
+        piecesOrder = { X: [], O: [] };
+        currentTurn = "X";
+        gameActive = true;
+        document.getElementById('end-game-controls').classList.add('hidden');
+        renderBoard();
         updateGlow();
         startTimer();
+        saveMatchState();
         if (cpuRole === "X") setTimeout(cpuLogic, 500);
     }
 
     function startTimer() {
-        timer = 1.0; // Reset to 1.0s every turn
+        timer = 1.0;
         clearInterval(timerInterval);
         timerInterval = setInterval(() => {
             if (!gameActive) return clearInterval(timerInterval);
             timer -= 0.1;
             document.getElementById('timerDisplay').textContent = Math.max(0, timer).toFixed(1);
-
             if (timer <= 0) {
                 clearInterval(timerInterval);
                 handleTimeout();
@@ -140,7 +185,6 @@
         if (!gameActive) return;
         const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
         if (empties.length > 0) {
-            // Auto-move for whichever player's turn it is
             const randomSpot = empties[Math.floor(Math.random() * empties.length)];
             makeMove(randomSpot);
         }
@@ -153,7 +197,6 @@
 
     function makeMove(i) {
         let role = currentTurn;
-        // Infinity Mechanic: only 3 pieces per player
         if (piecesOrder[role].length === 3) {
             const oldIndex = piecesOrder[role].shift();
             board[oldIndex] = "";
@@ -168,14 +211,15 @@
             currentTurn = currentTurn === "X" ? "O" : "X";
             updateGlow();
             startTimer();
+            saveMatchState();
             if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 400);
         }
     }
 
     function cpuLogic() {
         if (!gameActive) return;
-        let move = findBestMove(cpuRole); // Priority 1: Win
-        if (move === null) move = findBestMove(playerRole); // Priority 2: Block
+        let move = findBestMove(cpuRole);
+        if (move === null) move = findBestMove(playerRole);
         if (move === null) {
             const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
             move = empties[Math.floor(Math.random() * empties.length)];
@@ -200,13 +244,11 @@
     function renderBoard() {
         board.forEach((val, i) => {
             const cell = document.getElementById(`cell-${i}`);
+            if (!cell) return;
             cell.textContent = val;
             cell.className = `cell ${val === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-            // Ghosting effect for the next piece to be removed
             if (piecesOrder[val] && piecesOrder[val].length === 3 && piecesOrder[val][0] === i) {
                 cell.classList.add('fading');
-            } else {
-                cell.classList.remove('fading');
             }
         });
     }
@@ -220,7 +262,6 @@
         gameActive = false;
         clearInterval(timerInterval);
         const timerDisp = document.getElementById('timerDisplay');
-        
         if (winner === playerRole) {
             playerScore++;
             timerDisp.textContent = "WIN";
@@ -230,29 +271,21 @@
             timerDisp.textContent = "LOST";
             timerDisp.className = "text-5xl font-black font-mono text-pink-500 tracking-tighter";
         }
-        
         document.getElementById('score1').textContent = playerScore;
         document.getElementById('score2').textContent = cpuScore;
         document.getElementById('end-game-controls').classList.remove('hidden');
+        saveMatchState();
     }
 
     document.getElementById('playAgainBtn').onclick = () => initBoard();
     document.getElementById('changeSideBtn').onclick = () => {
-        document.getElementById('game-area').classList.add('hidden');
-        document.getElementById('side-selection').classList.remove('hidden');
+        localStorage.removeItem('solo_blitz_match'); // Reset full state to choose side
+        location.reload();
     };
 
-    // Exit to ../index.html (TicTacBlitz Home)
-    window.confirmExit = async function() {
-        const snap = await get(lobbyRef);
-        if (!snap.exists()) { window.location.href = '../index.html'; return; }
-        const d = snap.val();
-        if (d.players[playerUid]?.isHost) {
-            if (confirm("End match and close lobby for everyone?")) {
-                await remove(lobbyRef); localStorage.removeItem('blitz_session'); window.location.href = '../index.html';
-            }
-        } else {
-            if (confirm("Leave lobby?")) { localStorage.removeItem('blitz_session'); window.location.href = '../index.html'; }
+    window.confirmExit = function() {
+        if (confirm("Return to main menu? Your scores will be saved.")) {
+            window.location.href = '../index.html';
         }
     }
 </script>
