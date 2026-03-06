@@ -37,7 +37,6 @@
     </div>
 
     <div id="game-area" class="hidden flex flex-row items-center justify-center gap-12 w-full max-w-6xl">
-        
         <div id="card1" class="player-column">
             <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Player</p>
             <p id="playerRoleIcon" class="text-6xl font-black">?</p>
@@ -47,7 +46,7 @@
         <div class="flex flex-col items-center">
             <div id="board" class="shadow-2xl"></div>
             <div class="mt-8 flex flex-col items-center">
-                <span id="timerDisplay" class="text-5xl font-black font-mono text-white tracking-tighter">2.0</span>
+                <span id="timerDisplay" class="text-5xl font-black font-mono text-white tracking-tighter">1.0</span>
                 <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest mt-2">Blitz Timer</span>
             </div>
             
@@ -62,42 +61,30 @@
             <p id="cpuRoleIcon" class="text-6xl font-black">?</p>
             <p class="text-sm font-black text-slate-300">Score: <span id="score2" class="text-white">0</span></p>
         </div>
-
-        <button onclick="location.reload()" class="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 text-slate-400 px-6 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">Exit Game</button>
     </div>
+
     <button onclick="confirmExit()" 
         class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-red-600 hover:border-red-500 transition-all duration-300 shadow-2xl">
-    <span class="text-xl group-hover:scale-110 transition-transform">🏠</span>
-    
-    <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
-        Exit to Menu
-    </span>
-</button>
+        <span class="text-xl group-hover:scale-110 transition-transform">✖</span>
+        <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
+            Exit to Menu
+        </span>
+    </button>
 
     <script>
         let board = Array(9).fill("");
         let piecesOrder = { X: [], O: [] };
-        let scores = { X: 0, O: 0 };
+        let playerScore = 0;
+        let cpuScore = 0;
         let playerRole = "";
         let cpuRole = "";
         let currentTurn = "X";
         let gameActive = false;
-        let timer = 2.0;
+        let timer = 1.0;
         let timerInterval;
-        let lastTickSec = 2;
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-
-        function playTick(freq = 440) {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-        }
 
         function startGame(side) {
             playerRole = side;
@@ -121,7 +108,6 @@
             piecesOrder = { X: [], O: [] };
             currentTurn = "X";
             gameActive = true;
-            lastTickSec = 2;
             
             document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
             document.getElementById('end-game-controls').classList.add('hidden');
@@ -138,21 +124,16 @@
 
             updateGlow();
             startTimer();
-            if (cpuRole === "X") setTimeout(cpuLogic, 800);
+            if (cpuRole === "X") setTimeout(cpuLogic, 500);
         }
 
         function startTimer() {
-            timer = 2.0;
+            timer = 1.0;
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 if (!gameActive) return clearInterval(timerInterval);
                 timer -= 0.1;
                 document.getElementById('timerDisplay').textContent = Math.max(0, timer).toFixed(1);
-                
-                if (Math.floor(timer) < lastTickSec && timer > 0) {
-                    playTick(timer < 2 ? 880 : 440);
-                    lastTickSec = Math.floor(timer);
-                }
 
                 if (timer <= 0) {
                     clearInterval(timerInterval);
@@ -162,8 +143,10 @@
         }
 
         function handleTimeout() {
+            if (!gameActive) return;
             const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
             if (empties.length > 0) {
+                // If timeout, pick a move to keep the blitz flow going
                 const randomSpot = empties[Math.floor(Math.random() * empties.length)];
                 makeMove(randomSpot);
             }
@@ -176,6 +159,7 @@
 
         function makeMove(i) {
             let role = currentTurn;
+            // Blitz Mechanic: only 3 pieces per player
             if (piecesOrder[role].length === 3) {
                 const oldIndex = piecesOrder[role].shift();
                 board[oldIndex] = "";
@@ -190,7 +174,7 @@
                 currentTurn = currentTurn === "X" ? "O" : "X";
                 updateGlow();
                 startTimer();
-                if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 600);
+                if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 400);
             }
         }
 
@@ -241,45 +225,35 @@
             const timerDisp = document.getElementById('timerDisplay');
             
             if (winner === playerRole) {
-                scores.X++; 
+                playerScore++;
                 timerDisp.textContent = "WIN";
                 timerDisp.className = "text-5xl font-black font-mono text-blue-400 tracking-tighter";
             } else {
-                scores.O++;
+                cpuScore++;
                 timerDisp.textContent = "LOST";
                 timerDisp.className = "text-5xl font-black font-mono text-pink-500 tracking-tighter";
             }
             
-            document.getElementById('score1').textContent = scores.X;
-            document.getElementById('score2').textContent = scores.O;
+            document.getElementById('score1').textContent = playerScore;
+            document.getElementById('score2').textContent = cpuScore;
             document.getElementById('end-game-controls').classList.remove('hidden');
         }
 
         document.getElementById('playAgainBtn').onclick = () => initBoard();
-        
         document.getElementById('changeSideBtn').onclick = () => {
             document.getElementById('game-area').classList.add('hidden');
             document.getElementById('side-selection').classList.remove('hidden');
         };
-        function confirmExit() {
-    // Check if a game is currently active
-    const isGameActive = typeof gameActive !== 'undefined' ? gameActive : false;
-    const isMultiplayer = window.location.href.includes('multiplayer') || !!document.getElementById('game');
 
-    if (isGameActive || isMultiplayer) {
-        if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
-            // If it's a multiplayer Firebase lobby, you might want to run your exitGame logic
-            if (typeof exitGame === 'function') {
-                exitGame(true); // Run abandon logic if it exists
+        window.confirmExit = function() {
+            if (gameActive) {
+                if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
+                    window.location.href = '../index.html';
+                }
             } else {
                 window.location.href = '../index.html';
             }
         }
-    } else {
-        // Just a menu/waiting screen, exit immediately
-        window.location.href = '../index.html';
-    }
-}
     </script>
 </body>
 </html>
