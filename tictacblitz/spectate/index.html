@@ -88,14 +88,19 @@
     <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
         Exit to Menu
     </span>
-</button>
-
-  <script type="module">
+</button><script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    const config = { apiKey: "AIzaSyBSaKTzhqAU7EGgB2R614dx6LYUHmak2hE", authDomain: "tictactoe-72e15.firebaseapp.com", projectId: "tictactoe-72e15" };
-    const db = getFirestore(initializeApp(config));
+    const config = { 
+        apiKey: "AIzaSyBSaKTzhqAU7EGgB2R614dx6LYUHmak2hE", 
+        authDomain: "tictactoe-72e15.firebaseapp.com", 
+        databaseURL: "https://tictactoe-72e15-default-rtdb.firebaseio.com", // Ensure this matches your RTDB URL
+        projectId: "tictactoe-72e15" 
+    };
+    
+    const app = initializeApp(config);
+    const db = getDatabase(app);
 
     const lid = new URLSearchParams(window.location.search).get('lobby');
     const roomDisp = document.getElementById('roomNameDisplay');
@@ -108,6 +113,7 @@
     let lastTime = Date.now();
     let over = false;
 
+    // Build Board
     const boardEl = document.getElementById('board');
     for(let i=0; i<9; i++) {
         const c = document.createElement('div');
@@ -116,8 +122,10 @@
         boardEl.appendChild(c);
     }
 
-    onSnapshot(doc(db, "lobbies", lid), (snap) => {
-        const d = snap.data();
+    // RTDB Listener
+    const lobbyRef = ref(db, `lobbies/${lid}`);
+    onValue(lobbyRef, (snap) => {
+        const d = snap.val();
         if(!d) {
             statusLabel.textContent = "Lobby Closed";
             statusDot.className = "w-2 h-2 rounded-full bg-red-600";
@@ -127,16 +135,19 @@
         statusDot.className = "w-2 h-2 rounded-full bg-red-500 animate-ping";
         statusLabel.textContent = d.started ? "Live Feed" : "In Lobby";
 
-        const p1 = d.players[0], p2 = d.players[1];
+        // Convert players object to array for UI
+        const players = d.players ? Object.values(d.players) : [];
+        const p1 = players[0], p2 = players[1];
+
         if(p1) {
             document.getElementById('name1').textContent = p1.name;
-            document.getElementById('score1').textContent = p1.score;
+            document.getElementById('score1').textContent = p1.score || 0;
             document.getElementById('role1').textContent = p1.role || "?";
             document.getElementById('role1').className = `text-4xl lg:text-6xl font-black ${p1.role === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
         }
         if(p2) {
             document.getElementById('name2').textContent = p2.name;
-            document.getElementById('score2').textContent = p2.score;
+            document.getElementById('score2').textContent = p2.score || 0;
             document.getElementById('role2').textContent = p2.role || "?";
             document.getElementById('role2').className = `text-4xl lg:text-6xl font-black ${p2.role === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
         }
@@ -144,12 +155,17 @@
         document.getElementById('card1').classList.toggle('turn-glow-active', p1 && d.turn === p1.role);
         document.getElementById('card2').classList.toggle('turn-glow-active', p2 && d.turn === p2.role);
 
+        // Render Pieces
         d.board.forEach((v, i) => { 
             const cell = document.getElementById(`cell-${i}`);
             cell.textContent = v;
             cell.classList.remove('fading');
             cell.className = `cell ${v === 'X' ? 'text-blue-400' : v === 'O' ? 'text-pink-500' : 'text-white'}`;
-            if (v && d.piecesOrder[v] && d.piecesOrder[v].length === 3 && d.piecesOrder[v][0] === i) cell.classList.add('fading');
+            // Ghosting effect
+            if (v && d.piecesOrder && d.piecesOrder[v]) {
+                const order = d.piecesOrder[v];
+                if (order.length === 3 && order[0] === i) cell.classList.add('fading');
+            }
         });
 
         lastTime = d.lastMoveTime;
@@ -160,7 +176,6 @@
         }
     });
 
-    // Updated Spectator Timer: 1.0 second sync
     setInterval(() => {
         if(over) return;
         const rem = Math.max(0, 1.0 - (Date.now() - lastTime)/1000).toFixed(1);
@@ -176,10 +191,9 @@
         });
     };
 
-    // FIXED: Added "../" to go back to the TicTacBlitz main menu
     window.confirmExit = function() {
         window.location.href = '../index.html';
     }
-  </script>
+</script>
 </body>
 </html>
