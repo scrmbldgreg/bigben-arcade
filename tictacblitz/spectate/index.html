@@ -87,6 +87,14 @@
   <div id="toast" class="fixed bottom-6 lg:bottom-8 left-1/2 -translate-x-1/2 opacity-0 transition-opacity bg-blue-600 text-white px-5 py-2 rounded-full text-[9px] lg:text-[10px] font-black uppercase tracking-widest pointer-events-none z-50">
       Link Copied!
   </div>
+  <button onclick="confirmExit()" 
+        class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-red-600 hover:border-red-500 transition-all duration-300 shadow-2xl">
+    <span class="text-xl group-hover:scale-110 transition-transform">🏠</span>
+    
+    <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
+        Exit to Menu
+    </span>
+</button>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -172,6 +180,25 @@
             setTimeout(() => t.style.opacity = "0", 2000);
         });
     };
+    function confirmExit() {
+    // Check if a game is currently active
+    const isGameActive = typeof gameActive !== 'undefined' ? gameActive : false;
+    const isMultiplayer = window.location.href.includes('multiplayer') || !!document.getElementById('game');
+
+    if (isGameActive || isMultiplayer) {
+        if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
+            // If it's a multiplayer Firebase lobby, you might want to run your exitGame logic
+            if (typeof exitGame === 'function') {
+                exitGame(true); // Run abandon logic if it exists
+            } else {
+                window.location.href = '../index.html';
+            }
+        }
+    } else {
+        // Just a menu/waiting screen, exit immediately
+        window.location.href = '../index.html';
+    }
+}
   </script>
 </body>
 </html>
