@@ -69,191 +69,194 @@
         <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
             Exit to Menu
         </span>
-    </button>
+    </button><script>
+    let board = Array(9).fill("");
+    let piecesOrder = { X: [], O: [] };
+    let playerScore = 0;
+    let cpuScore = 0;
+    let playerRole = "";
+    let cpuRole = "";
+    let currentTurn = "X";
+    let gameActive = false;
+    let timer = 1.0; // Standardized Blitz speed
+    let timerInterval;
 
-    <script>
-        let board = Array(9).fill("");
-        let piecesOrder = { X: [], O: [] };
-        let playerScore = 0;
-        let cpuScore = 0;
-        let playerRole = "";
-        let cpuRole = "";
-        let currentTurn = "X";
-        let gameActive = false;
-        let timer = 1.0;
-        let timerInterval;
+    // London-inspired Audio Context
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    function startGame(side) {
+        playerRole = side;
+        cpuRole = side === 'X' ? 'O' : 'X';
+        document.getElementById('side-selection').classList.add('hidden');
+        document.getElementById('game-area').classList.remove('hidden');
+        
+        const pIcon = document.getElementById('playerRoleIcon');
+        pIcon.textContent = playerRole;
+        pIcon.className = `text-6xl font-black ${playerRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+        
+        const cIcon = document.getElementById('cpuRoleIcon');
+        cIcon.textContent = cpuRole;
+        cIcon.className = `text-6xl font-black ${cpuRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
 
-        function startGame(side) {
-            playerRole = side;
-            cpuRole = side === 'X' ? 'O' : 'X';
-            document.getElementById('side-selection').classList.add('hidden');
-            document.getElementById('game-area').classList.remove('hidden');
-            
-            const pIcon = document.getElementById('playerRoleIcon');
-            pIcon.textContent = playerRole;
-            pIcon.className = `text-6xl font-black ${playerRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-            
-            const cIcon = document.getElementById('cpuRoleIcon');
-            cIcon.textContent = cpuRole;
-            cIcon.className = `text-6xl font-black ${cpuRole === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+        initBoard();
+    }
 
-            initBoard();
+    function initBoard() {
+        board = Array(9).fill("");
+        piecesOrder = { X: [], O: [] };
+        currentTurn = "X";
+        gameActive = true;
+        
+        document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
+        document.getElementById('end-game-controls').classList.add('hidden');
+
+        const boardEl = document.getElementById('board');
+        boardEl.innerHTML = '';
+        for (let i = 0; i < 9; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = `cell-${i}`;
+            cell.onclick = () => handlePlayerMove(i);
+            boardEl.appendChild(cell);
         }
 
-        function initBoard() {
-            board = Array(9).fill("");
-            piecesOrder = { X: [], O: [] };
-            currentTurn = "X";
-            gameActive = true;
-            
-            document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
-            document.getElementById('end-game-controls').classList.add('hidden');
+        updateGlow();
+        startTimer();
+        if (cpuRole === "X") setTimeout(cpuLogic, 500);
+    }
 
-            const boardEl = document.getElementById('board');
-            boardEl.innerHTML = '';
-            for (let i = 0; i < 9; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cell';
-                cell.id = `cell-${i}`;
-                cell.onclick = () => handlePlayerMove(i);
-                boardEl.appendChild(cell);
+    function startTimer() {
+        timer = 1.0; // Reset to 1.0s every turn
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!gameActive) return clearInterval(timerInterval);
+            timer -= 0.1;
+            document.getElementById('timerDisplay').textContent = Math.max(0, timer).toFixed(1);
+
+            if (timer <= 0) {
+                clearInterval(timerInterval);
+                handleTimeout();
             }
+        }, 100);
+    }
 
+    function handleTimeout() {
+        if (!gameActive) return;
+        const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
+        if (empties.length > 0) {
+            // Auto-move for whichever player's turn it is
+            const randomSpot = empties[Math.floor(Math.random() * empties.length)];
+            makeMove(randomSpot);
+        }
+    }
+
+    function handlePlayerMove(i) {
+        if (!gameActive || currentTurn !== playerRole || board[i] !== "") return;
+        makeMove(i);
+    }
+
+    function makeMove(i) {
+        let role = currentTurn;
+        // Infinity Mechanic: only 3 pieces per player
+        if (piecesOrder[role].length === 3) {
+            const oldIndex = piecesOrder[role].shift();
+            board[oldIndex] = "";
+        }
+        board[i] = role;
+        piecesOrder[role].push(i);
+        renderBoard();
+        
+        if (checkWin(role)) {
+            endGame(role);
+        } else {
+            currentTurn = currentTurn === "X" ? "O" : "X";
             updateGlow();
             startTimer();
-            if (cpuRole === "X") setTimeout(cpuLogic, 500);
+            if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 400);
         }
+    }
 
-        function startTimer() {
-            timer = 1.0;
-            clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                if (!gameActive) return clearInterval(timerInterval);
-                timer -= 0.1;
-                document.getElementById('timerDisplay').textContent = Math.max(0, timer).toFixed(1);
-
-                if (timer <= 0) {
-                    clearInterval(timerInterval);
-                    handleTimeout();
-                }
-            }, 100);
-        }
-
-        function handleTimeout() {
-            if (!gameActive) return;
+    function cpuLogic() {
+        if (!gameActive) return;
+        let move = findBestMove(cpuRole); // Priority 1: Win
+        if (move === null) move = findBestMove(playerRole); // Priority 2: Block
+        if (move === null) {
             const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
-            if (empties.length > 0) {
-                // If timeout, pick a move to keep the blitz flow going
-                const randomSpot = empties[Math.floor(Math.random() * empties.length)];
-                makeMove(randomSpot);
-            }
+            move = empties[Math.floor(Math.random() * empties.length)];
         }
+        if (move !== null) makeMove(move);
+    }
 
-        function handlePlayerMove(i) {
-            if (!gameActive || currentTurn !== playerRole || board[i] !== "") return;
-            makeMove(i);
+    function findBestMove(role) {
+        for (let combo of winCombos) {
+            const vals = combo.map(i => board[i]);
+            const count = vals.filter(v => v === role).length;
+            const empty = vals.indexOf("");
+            if (count === 2 && empty !== -1) return combo[empty];
         }
+        return null;
+    }
 
-        function makeMove(i) {
-            let role = currentTurn;
-            // Blitz Mechanic: only 3 pieces per player
-            if (piecesOrder[role].length === 3) {
-                const oldIndex = piecesOrder[role].shift();
-                board[oldIndex] = "";
-            }
-            board[i] = role;
-            piecesOrder[role].push(i);
-            renderBoard();
-            
-            if (checkWin(role)) {
-                endGame(role);
+    function checkWin(role) {
+        return winCombos.some(combo => combo.every(i => board[i] === role));
+    }
+
+    function renderBoard() {
+        board.forEach((val, i) => {
+            const cell = document.getElementById(`cell-${i}`);
+            cell.textContent = val;
+            cell.className = `cell ${val === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+            // Ghosting effect for the next piece to be removed
+            if (piecesOrder[val] && piecesOrder[val].length === 3 && piecesOrder[val][0] === i) {
+                cell.classList.add('fading');
             } else {
-                currentTurn = currentTurn === "X" ? "O" : "X";
-                updateGlow();
-                startTimer();
-                if (currentTurn === cpuRole && gameActive) setTimeout(cpuLogic, 400);
+                cell.classList.remove('fading');
             }
+        });
+    }
+
+    function updateGlow() {
+        document.getElementById('card1').classList.toggle('turn-glow-active', currentTurn === playerRole);
+        document.getElementById('card2').classList.toggle('turn-glow-active', currentTurn === cpuRole);
+    }
+
+    function endGame(winner) {
+        gameActive = false;
+        clearInterval(timerInterval);
+        const timerDisp = document.getElementById('timerDisplay');
+        
+        if (winner === playerRole) {
+            playerScore++;
+            timerDisp.textContent = "WIN";
+            timerDisp.className = "text-5xl font-black font-mono text-blue-400 tracking-tighter";
+        } else {
+            cpuScore++;
+            timerDisp.textContent = "LOST";
+            timerDisp.className = "text-5xl font-black font-mono text-pink-500 tracking-tighter";
         }
+        
+        document.getElementById('score1').textContent = playerScore;
+        document.getElementById('score2').textContent = cpuScore;
+        document.getElementById('end-game-controls').classList.remove('hidden');
+    }
 
-        function cpuLogic() {
-            if (!gameActive) return;
-            let move = findBestMove(cpuRole); 
-            if (move === null) move = findBestMove(playerRole); 
-            if (move === null) {
-                const empties = board.map((v, i) => v === "" ? i : null).filter(v => v !== null);
-                move = empties[Math.floor(Math.random() * empties.length)];
-            }
-            if (move !== null) makeMove(move);
-        }
+    document.getElementById('playAgainBtn').onclick = () => initBoard();
+    document.getElementById('changeSideBtn').onclick = () => {
+        document.getElementById('game-area').classList.add('hidden');
+        document.getElementById('side-selection').classList.remove('hidden');
+    };
 
-        function findBestMove(role) {
-            for (let combo of winCombos) {
-                const vals = combo.map(i => board[i]);
-                const count = vals.filter(v => v === role).length;
-                const empty = vals.indexOf("");
-                if (count === 2 && empty !== -1) return combo[empty];
-            }
-            return null;
-        }
-
-        function checkWin(role) {
-            return winCombos.some(combo => combo.every(i => board[i] === role));
-        }
-
-        function renderBoard() {
-            board.forEach((val, i) => {
-                const cell = document.getElementById(`cell-${i}`);
-                cell.textContent = val;
-                cell.className = `cell ${val === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-                if (piecesOrder[val] && piecesOrder[val].length === 3 && piecesOrder[val][0] === i) {
-                    cell.classList.add('fading');
-                }
-            });
-        }
-
-        function updateGlow() {
-            document.getElementById('card1').classList.toggle('turn-glow-active', currentTurn === playerRole);
-            document.getElementById('card2').classList.toggle('turn-glow-active', currentTurn === cpuRole);
-        }
-
-        function endGame(winner) {
-            gameActive = false;
-            clearInterval(timerInterval);
-            const timerDisp = document.getElementById('timerDisplay');
-            
-            if (winner === playerRole) {
-                playerScore++;
-                timerDisp.textContent = "WIN";
-                timerDisp.className = "text-5xl font-black font-mono text-blue-400 tracking-tighter";
-            } else {
-                cpuScore++;
-                timerDisp.textContent = "LOST";
-                timerDisp.className = "text-5xl font-black font-mono text-pink-500 tracking-tighter";
-            }
-            
-            document.getElementById('score1').textContent = playerScore;
-            document.getElementById('score2').textContent = cpuScore;
-            document.getElementById('end-game-controls').classList.remove('hidden');
-        }
-
-        document.getElementById('playAgainBtn').onclick = () => initBoard();
-        document.getElementById('changeSideBtn').onclick = () => {
-            document.getElementById('game-area').classList.add('hidden');
-            document.getElementById('side-selection').classList.remove('hidden');
-        };
-
-        window.confirmExit = function() {
-            if (gameActive) {
-                if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
-                    window.location.href = '../index.html';
-                }
-            } else {
+    // Exit to ../index.html (TicTacBlitz Home)
+    window.confirmExit = function() {
+        if (gameActive) {
+            if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
                 window.location.href = '../index.html';
             }
+        } else {
+            window.location.href = '../index.html';
         }
-    </script>
+    }
+</script>
 </body>
 </html>
