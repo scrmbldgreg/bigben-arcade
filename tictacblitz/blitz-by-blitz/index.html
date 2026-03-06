@@ -102,14 +102,13 @@
   <div id="toast" class="toast">Link Copied!</div>
   <button onclick="confirmExit()" 
         class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-red-600 hover:border-red-500 transition-all duration-300 shadow-2xl">
-    <span class="text-xl group-hover:scale-110 transition-transform">🏠</span>
-    
+    <span class="text-xl group-hover:scale-110 transition-transform">✖</span>
     <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
         Exit to Menu
     </span>
 </button>
 
-  <script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
@@ -137,6 +136,7 @@
         c.onclick = () => makeMove(i); boardEl.appendChild(c);
     }
 
+    // Logic to handle Lobby Link Copying
     document.getElementById('displayLobbyName').onclick = () => {
         const url = `${window.location.origin}${window.location.pathname}?lobby=${document.getElementById('displayLobbyName').textContent}`;
         navigator.clipboard.writeText(url);
@@ -173,21 +173,26 @@
         if (unsub) unsub();
         unsub = onSnapshot(lobbyRef, (snap) => {
             const d = snap.data(); if (!d) { location.reload(); return; }
+            
+            // Handle Abandonment
             if (d.abander && d.abander !== playerName) {
                 const p1 = d.players[0], p2 = d.players[1];
                 sessionStorage.setItem('abandon_msg', `${d.abander} abandoned match. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
                 location.reload(); return;
             }
+
             const me = d.players.find(p => p.uid === playerUid);
             if (!me) { location.reload(); return; }
             playerRole = me.role;
 
+            // Update Lobby UI
             const p1 = d.players[0], p2 = d.players[1];
             document.getElementById('lobbyName1').textContent = p1 ? p1.name : "Host";
             document.getElementById('lobbyScore1').textContent = p1 ? p1.score : 0;
             document.getElementById('lobbyName2').textContent = p2 ? p2.name : "Guest";
             document.getElementById('lobbyScore2').textContent = p2 ? p2.score : 0;
 
+            // Role Selection Logic
             const pickPrompt = document.getElementById('pickerPrompt');
             const xBtn = document.getElementById('pickX'), oBtn = document.getElementById('pickO');
             const xTaken = d.players.some(p => p.role === 'X'), oTaken = d.players.some(p => p.role === 'O');
@@ -195,49 +200,42 @@
             const hasPriorityPicked = d.players.some(p => p.uid === priorityUid && p.role !== null);
             
             let isMyTurnToPick = (playerUid === priorityUid) || hasPriorityPicked;
-            if (playerUid === priorityUid) pickPrompt.textContent = d.loserUid ? "Your turn to pick side first!" : "Host picks side first!";
+            if (playerUid === priorityUid) pickPrompt.textContent = d.loserUid ? "You lost! Pick side first." : "Host picks side first!";
             else pickPrompt.textContent = hasPriorityPicked ? "Your turn to pick!" : "Waiting for prioritized player...";
 
             xBtn.disabled = !isMyTurnToPick || (xTaken && playerRole !== 'X');
             oBtn.disabled = !isMyTurnToPick || (oTaken && playerRole !== 'O');
-            xBtn.className = `flex-1 py-4 rounded-xl border-2 font-black text-2xl transition-all ${playerRole === 'X' ? 'border-blue-500 bg-blue-500/20 shadow-[0_0_10px_rgba(96,165,250,0.3)]' : xTaken ? 'border-slate-800 opacity-20' : 'border-slate-700'}`;
-            oBtn.className = `flex-1 py-4 rounded-xl border-2 font-black text-2xl transition-all ${playerRole === 'O' ? 'border-pink-500 bg-pink-500/20 shadow-[0_0_10px_rgba(244,114,182,0.3)]' : oTaken ? 'border-slate-800 opacity-20' : 'border-slate-700'}`;
-
+            
             const readyBtn = document.getElementById('readyBtn');
             readyBtn.disabled = !playerRole;
             const everyoneReady = d.players.length === 2 && d.players.every(p => p.ready && p.role);
             readyBtn.textContent = me.ready ? "✓ Ready" : "Mark Ready";
-            readyBtn.className = `w-full py-3 rounded-xl font-bold transition-all ${me.ready ? 'bg-green-600 border-green-500 shadow-lg' : 'bg-slate-700 border-slate-600 shadow-md'}`;
             
             if (me.isHost) {
                 document.getElementById('startMatchBtn').classList.toggle('hidden', false);
                 document.getElementById('startMatchBtn').disabled = !everyoneReady;
             }
             
-            const statusEl = document.getElementById('waitStatus');
-            if (d.players.length < 2) statusEl.textContent = "Waiting for opponent to join...";
-            else if (everyoneReady) statusEl.textContent = me.isHost ? "" : "Waiting for Host to start match...";
-            else statusEl.textContent = !me.role ? "Pick your side above!" : (me.ready ? "Waiting for opponent..." : "Click Mark Ready!");
-
             if (d.started && d.players.length === 2) runGame(lid);
             else { waitRoom.classList.remove('hidden'); gameArea.classList.add('hidden'); }
         });
     }
 
     async function exitGame(isAbandon = false) {
+        if (!lobbyRef) { location.href = '../index.html'; return; }
         const snap = await getDoc(lobbyRef);
         if (snap.exists()) {
             const d = snap.data();
             const me = d.players.find(p => p.uid === playerUid);
-            if (isAbandon) {
+            if (isAbandon && d.started && !d.winner) {
                 const p1 = d.players[0], p2 = d.players[1];
-                sessionStorage.setItem('abandon_msg', `You abandoned match. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
+                sessionStorage.setItem('abandon_msg', `You abandoned. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
                 await updateDoc(lobbyRef, { abander: playerName });
             }
             if (me?.isHost) await deleteDoc(lobbyRef);
             else if (me) await updateDoc(lobbyRef, { players: arrayRemove(me) });
         }
-        location.reload();
+        location.href = '../index.html';
     }
 
     document.getElementById('exitLobbyBtn').onclick = () => exitGame(false);
@@ -270,40 +268,40 @@
     function runGame(lid) {
         waitRoom.classList.add('hidden'); gameArea.classList.remove('hidden');
         onSnapshot(lobbyRef, (snap) => {
-            const d = snap.data(); if (!d || !d.started || d.players.length < 2) return;
+            const d = snap.data(); if (!d || !d.started) return;
             const p1 = d.players[0], p2 = d.players[1];
             
-            document.getElementById('name1').textContent = p1?.name || "Host";
+            // Sync UI
             document.getElementById('score1').textContent = p1?.score || 0;
-            document.getElementById('role1').textContent = p1?.role || "?";
-            document.getElementById('role1').className = `text-5xl font-black ${p1?.role === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-
-            document.getElementById('name2').textContent = p2?.name || "Guest";
             document.getElementById('score2').textContent = p2?.score || 0;
-            document.getElementById('role2').textContent = p2?.role || "?";
-            document.getElementById('role2').className = `text-5xl font-black ${p2?.role === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-
             document.getElementById('card1').className = `player-column ${d.turn === p1.role ? 'turn-glow-active' : ''}`;
             document.getElementById('card2').className = `player-column ${d.turn === p2.role ? 'turn-glow-active' : ''}`;
 
             renderBoard(d.board, d.piecesOrder, d.turn);
             startTimer(d.lastMoveTime, d.turn, d.winner, d.board);
+            
             if (d.winner) document.getElementById('newGameBtn').classList.remove('hidden');
             else document.getElementById('newGameBtn').classList.add('hidden');
         });
     }
 
+    // UPDATED TIMER: Set to 1.0 second
     function startTimer(lastTime, turn, winner, curBoard) {
         clearInterval(timerInterval);
-        if (winner) return;
+        if (winner) {
+            document.getElementById('timerDisplay').textContent = "0.0";
+            return;
+        }
         timerInterval = setInterval(async () => {
-            const rem = Math.max(0, 2 - (Date.now() - lastTime) / 1000).toFixed(1);
+            const rem = Math.max(0, 1.0 - (Date.now() - lastTime) / 1000).toFixed(1);
             document.getElementById('timerDisplay').textContent = rem;
-            if (rem <= 0 && playerRole === turn) {
+            
+            if (rem <= 0 && playerRole === turn && !winner) {
                 clearInterval(timerInterval);
                 const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
                 const opp = turn === "X" ? "O" : "X";
                 let spot = -1;
+                // Simple AI to prevent immediate loss on timeout
                 for (let c of wins) {
                     const vals = c.map(i => curBoard[i]);
                     if (vals.filter(v => v === opp).length === 2 && vals.indexOf("") !== -1) { spot = c[vals.indexOf("")]; break; }
@@ -319,14 +317,19 @@
         const d = snap.data();
         if (d.winner || d.turn !== playerRole || d.board[i] !== "") return;
         let nb = [...d.board], no = { ...d.piecesOrder };
+        
+        // Blitz Logic: Max 3 pieces
         if (no[playerRole].length < 3) { nb[i] = playerRole; no[playerRole].push(i); }
         else { const old = no[playerRole].shift(); nb[old] = ""; nb[i] = playerRole; no[playerRole].push(i); }
+        
         const win = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].some(c => c.every(idx => nb[idx] === playerRole));
         if (win) {
             const loser = d.players.find(p => p.role !== playerRole);
             const up = d.players.map(p => p.role === playerRole ? {...p, score: p.score + 1} : p);
             await updateDoc(lobbyRef, { board: nb, piecesOrder: no, winner: playerRole, players: up, lastMoveTime: Date.now(), loserUid: loser.uid });
-        } else { await updateDoc(lobbyRef, { board: nb, piecesOrder: no, turn: playerRole === "X" ? "O" : "X", lastMoveTime: Date.now() }); }
+        } else { 
+            await updateDoc(lobbyRef, { board: nb, piecesOrder: no, turn: playerRole === "X" ? "O" : "X", lastMoveTime: Date.now() }); 
+        }
     }
 
     function renderBoard(b, o, curr) {
@@ -334,6 +337,7 @@
             const c = document.getElementById(`cell-${i}`);
             c.textContent = v;
             c.className = `cell ${v === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
+            // Ghosting effect for piece about to disappear
             if (curr === playerRole && v === playerRole && o[playerRole].length === 3 && o[playerRole][0] === i) c.classList.add("opacity-30");
         });
     }
@@ -346,25 +350,18 @@
 
     const urlLobby = new URLSearchParams(window.location.search).get('lobby');
     if (urlLobby) { lobbyInput.value = urlLobby; tabJoin.click(); }
-    function confirmExit() {
-    // Check if a game is currently active
-    const isGameActive = typeof gameActive !== 'undefined' ? gameActive : false;
-    const isMultiplayer = window.location.href.includes('multiplayer') || !!document.getElementById('game');
 
-    if (isGameActive || isMultiplayer) {
-        if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
-            // If it's a multiplayer Firebase lobby, you might want to run your exitGame logic
-            if (typeof exitGame === 'function') {
-                exitGame(true); // Run abandon logic if it exists
-            } else {
-                window.location.href = '../index.html';
+    window.confirmExit = function() {
+        const isMultiplayer = !!document.getElementById('game');
+        if (isMultiplayer) {
+            if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
+                exitGame(true);
             }
+        } else {
+            window.location.href = '../index.html';
         }
-    } else {
-        // Just a menu/waiting screen, exit immediately
-        window.location.href = '../index.html';
     }
-}
+</script>
   </script>
 </body>
 </html>
