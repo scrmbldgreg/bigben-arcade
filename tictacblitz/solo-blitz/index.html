@@ -63,13 +63,7 @@
         </div>
     </div>
 
-    <button onclick="confirmExit()" 
-        class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-red-600 hover:border-red-500 transition-all duration-300 shadow-2xl">
-        <span class="text-xl group-hover:scale-110 transition-transform">✖</span>
-        <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
-            Exit to Menu
-        </span>
-    </button><script>
+    <script>
     let board = Array(9).fill("");
     let piecesOrder = { X: [], O: [] };
     let playerScore = 0;
