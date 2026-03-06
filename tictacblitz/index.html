@@ -19,11 +19,9 @@
     .glow-blue:hover { box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5); }
     .glow-purple:hover { box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.5); }
     .glow-green:hover { box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.5); }
-    /* Style for the Big Ben Exit Button */
-    .glow-red:hover { box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.5); }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen text-white p-6">
+<body class="flex flex-col items-center justify-center min-h-screen text-white p-6 relative">
 
   <header class="text-center mb-12">
     <h1 class="text-6xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic uppercase mb-2">
@@ -57,16 +55,15 @@
       </div>
       <span class="text-3xl">👁️</span>
     </button>
-
-    <button onclick="window.location.href='https://scrmbldgreg.github.io/bigben-arcade'" class="menu-card glow-red w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
-      <div class="text-left">
-        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-red-400 transition-colors italic">Big Ben Arcade</h2>
-        <p class="text-xs text-slate-500 font-medium">Return to Games Hub</p>
-      </div>
-      <span class="text-3xl">🕰️</span>
-    </button>
-
   </div>
+
+  <button onclick="window.location.href='https://scrmbldgreg.github.io/bigben-arcade'" 
+        class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-slate-800 hover:border-white/30 transition-all duration-300 shadow-2xl">
+    <span class="text-xl group-hover:scale-110 transition-transform">🕰️</span>
+    <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
+        Big Ben Arcade
+    </span>
+  </button>
 
   <div id="specModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
     <div class="w-full max-w-sm bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 shadow-2xl space-y-6">
@@ -77,10 +74,7 @@
             <h3 class="text-2xl font-black uppercase tracking-tight text-white">Spectate Feed</h3>
             <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Enter code to watch live</p>
         </div>
-        
-        <input id="specInput" type="text" placeholder="LOBBY CODE" 
-               class="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-center font-mono font-bold tracking-[0.3em] uppercase text-green-400">
-        
+        <input id="specInput" type="text" placeholder="LOBBY CODE" class="w-full bg-slate-950 border border-slate-800 p-5 rounded-2xl focus:ring-2 focus:ring-green-500 outline-none text-center font-mono font-bold tracking-[0.3em] uppercase text-green-400">
         <div class="flex gap-3">
             <button onclick="toggleSpecModal(false)" class="flex-1 bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Cancel</button>
             <button onclick="confirmSpectate()" class="flex-1 bg-green-600 hover:bg-green-500 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-green-900/40">Watch</button>
@@ -118,9 +112,7 @@
     }
 
     document.getElementById('specInput').addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') {
-        confirmSpectate();
-      }
+      if (e.key === 'Enter') confirmSpectate();
     });
   </script>
 </body>
