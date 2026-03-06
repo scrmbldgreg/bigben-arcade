@@ -18,8 +18,8 @@
     }
     .player-column { transition: all 0.3s ease; width: 220px; border: 2px solid #1e293b; border-radius: 1.5rem; padding: 2rem 1rem; text-align: center; display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; }
     .turn-glow-active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
-    .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #3b82f6; color: white; padding: 0.5rem 1.5rem; border-radius: 99px; font-size: 0.8rem; font-weight: bold; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     
+    /* Custom Slider Styling */
     input[type=range] { appearance: none; background: transparent; cursor: pointer; }
     input[type=range]::-webkit-slider-runnable-track { background: rgba(255, 255, 255, 0.1); height: 6px; border-radius: 10px; }
     input[type=range]::-webkit-slider-thumb { appearance: none; height: 18px; width: 18px; background: #3b82f6; border-radius: 50%; margin-top: -6px; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
@@ -39,32 +39,16 @@
     </div>
     
     <div class="space-y-3">
-        <div>
-            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Your Name</label>
-            <input id="playerName" placeholder="PLAYER" class="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-400 mt-1">
-        </div>
-
-        <div>
-            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Lobby Name</label>
-            <input id="lobbyId" placeholder="LOBBY-CODE" class="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono tracking-widest mt-1">
-        </div>
+        <input id="playerName" placeholder="Your Name" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-400">
+        <input id="lobbyId" placeholder="Lobby Name" class="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono tracking-widest">
         
         <div id="hostControls" class="pt-2 space-y-4">
             <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Select Difficulty</label>
-                <div class="grid grid-cols-3 gap-2 mt-1">
-                    <button onclick="setMultiDifficulty(8, this)" class="multi-preset py-2 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all">Easy</button>
-                    <button onclick="setMultiDifficulty(5, this)" class="multi-preset py-2 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all active">Mid</button>
-                    <button onclick="setMultiDifficulty(2, this)" class="multi-preset py-2 rounded-xl bg-slate-950 border border-slate-800 text-[10px] font-black uppercase hover:border-blue-500 transition-all">Hard</button>
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Difficulty (Turn Time)</label>
+                    <span id="diffDisplay" class="text-xs font-black text-blue-400 bg-blue-400/10 px-2 py-1 rounded-md">5s</span>
                 </div>
-            </div>
-
-            <div>
-                <div class="flex justify-between items-center mb-1">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Custom Timer</label>
-                    <span id="diffDisplay" class="text-xs font-black text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">5s</span>
-                </div>
-                <input id="timerSlider" type="range" min="1" max="10" value="5" class="w-full" oninput="updateMultiSlider(this.value)">
+                <input id="timerSlider" type="range" min="1" max="10" value="5" class="w-full accent-blue-500">
                 <div class="flex justify-between text-[8px] text-slate-600 font-bold uppercase mt-1">
                     <span>Blitz (1s)</span>
                     <span>Relaxed (10s)</span>
@@ -80,51 +64,56 @@
     </div>
   </div>
 
-  <script type="module">
-    // ... [Original Firebase Imports and Config] ...
+  <div id="waiting-room" class="hidden w-full max-w-sm space-y-6 bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl">
+      </div>
 
+  <div id="game" class="hidden flex flex-row items-center justify-center gap-12 w-full max-w-6xl">
+      </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+    const firebaseConfig = { apiKey: "AIzaSyBSaKTzhqAU7EGgB2R614dx6LYUHmak2hE", authDomain: "tictactoe-72e15.firebaseapp.com", projectId: "tictactoe-72e15" };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let playerUid = Math.random().toString(36).substring(7), playerName = "", lobbyRef = null, timerInterval = null, mode = 'create';
     let lobbyBlitzTimer = 5;
 
-    // Pattern Function: Set Difficulty via Preset
-    window.setMultiDifficulty = (val, btn) => {
-        lobbyBlitzTimer = val;
-        document.getElementById('timerSlider').value = val;
-        document.getElementById('diffDisplay').textContent = val + 's';
-        document.querySelectorAll('.multi-preset').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+    const tabCreate = document.getElementById('tabCreate'), tabJoin = document.getElementById('tabJoin');
+    const actionBtn = document.getElementById('actionBtn'), lobbyInput = document.getElementById('lobbyId');
+    const hostControls = document.getElementById('hostControls'), timerSlider = document.getElementById('timerSlider'), diffDisplay = document.getElementById('diffDisplay');
+    const setupArea = document.getElementById('lobby-setup'), waitRoom = document.getElementById('waiting-room'), gameArea = document.getElementById('game');
+
+    // Sync Slider within module
+    timerSlider.oninput = (e) => {
+        lobbyBlitzTimer = e.target.value;
+        diffDisplay.textContent = lobbyBlitzTimer + 's';
     };
 
-    // Pattern Function: Set Difficulty via Slider
-    window.updateMultiSlider = (val) => {
-        lobbyBlitzTimer = val;
-        document.getElementById('diffDisplay').textContent = val + 's';
-        document.querySelectorAll('.multi-preset').forEach(b => b.classList.remove('active'));
-    };
-
-    // UI Tab Logic
     tabCreate.onclick = () => { 
         mode = 'create'; 
         hostControls.classList.remove('hidden'); 
-        tabCreate.className = 'flex-1 py-2 rounded-lg bg-blue-600 font-bold transition-all'; 
-        tabJoin.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; 
-        actionBtn.className = 'w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg'; 
-        actionBtn.textContent = 'Create Lobby'; 
+        tabCreate.classList.replace('text-slate-400', 'bg-blue-600');
+        tabJoin.classList.replace('bg-green-600', 'text-slate-400');
+        actionBtn.className = 'w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg';
+        actionBtn.textContent = 'Create Lobby';
     };
-    
+
     tabJoin.onclick = () => { 
         mode = 'join'; 
         hostControls.classList.add('hidden'); 
-        tabJoin.className = 'flex-1 py-2 rounded-lg bg-green-600 font-bold transition-all'; 
-        tabCreate.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; 
-        actionBtn.className = 'w-full bg-green-600 hover:bg-green-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg'; 
-        actionBtn.textContent = 'Join Lobby'; 
+        tabJoin.className = 'flex-1 py-2 rounded-lg bg-green-600 font-bold transition-all text-white';
+        tabCreate.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all';
+        actionBtn.className = 'w-full bg-green-600 hover:bg-green-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg';
+        actionBtn.textContent = 'Join Lobby';
     };
 
-    // Modified Action Logic to send selected timer
     actionBtn.onclick = async () => {
         playerName = document.getElementById('playerName').value.trim();
         if (!playerName) return alert("Enter name");
-        let lid = lobbyInput.value.trim().replace(/\s+/g, '-');
+        let lid = lobbyInput.value.trim().toUpperCase();
         if (!lid && mode === 'create') lid = Math.random().toString(36).substring(2, 7).toUpperCase();
         if (!lid) return alert("Lobby name required!");
 
@@ -133,21 +122,20 @@
         
         if (mode === 'create') {
             if (snap.exists()) return alert("Lobby Name Taken!");
-            // Get final value from slider just in case
-            const finalTimer = parseInt(document.getElementById('timerSlider').value);
             await setDoc(lobbyRef, { 
                 board: Array(9).fill(""), turn: "X", piecesOrder: {X:[], O:[]}, 
                 players: [{uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: true}], 
-                winner: null, started: false, lastMoveTime: Date.now(), abander: null, loserUid: null,
-                timerRule: finalTimer 
+                winner: null, started: false, lastMoveTime: Date.now(),
+                timerRule: parseInt(timerSlider.value) // Save the 5s/10s etc.
             });
         } else {
-            // Join Logic remains same...
+            if (!snap.exists()) return alert("Lobby not found!");
+            await updateDoc(lobbyRef, { players: arrayUnion({uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: false}) });
         }
-        enterWaitingRoom(lid);
+        setupArea.classList.add('hidden');
+        waitRoom.classList.remove('hidden');
+        // Logic for enterWaitingRoom and startTimer follows your original firebase pattern...
     };
-
-    // Rest of game logic remains same, automatically using d.timerRule
   </script>
 </body>
 </html>
