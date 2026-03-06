@@ -19,6 +19,8 @@
     .glow-blue:hover { box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.5); }
     .glow-purple:hover { box-shadow: 0 10px 30px -10px rgba(168, 85, 247, 0.5); }
     .glow-green:hover { box-shadow: 0 10px 30px -10px rgba(34, 197, 94, 0.5); }
+    /* Style for the Big Ben Exit Button */
+    .glow-red:hover { box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.5); }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen text-white p-6">
@@ -27,7 +29,6 @@
     <h1 class="text-6xl font-black tracking-tighter bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500 bg-clip-text text-transparent italic uppercase mb-2">
       TicTacBlitz
     </h1>
-    <!-- <p class="text-slate-500 font-bold tracking-widest uppercase text-xs">Infinity Move Edition</p> -->
   </header>
 
   <div class="w-full max-w-sm space-y-4">
@@ -55,6 +56,14 @@
         <p class="text-xs text-slate-500 font-medium">Watch an ongoing match</p>
       </div>
       <span class="text-3xl">👁️</span>
+    </button>
+
+    <button onclick="window.location.href='https://scrmbldgreg.github.io/bigben-arcade'" class="menu-card glow-red w-full p-6 rounded-3xl bg-slate-900/50 flex items-center justify-between group">
+      <div class="text-left">
+        <h2 class="text-xl font-black uppercase tracking-tight group-hover:text-red-400 transition-colors italic">Big Ben Arcade</h2>
+        <p class="text-xs text-slate-500 font-medium">Return to Games Hub</p>
+      </div>
+      <span class="text-3xl">🕰️</span>
     </button>
 
   </div>
@@ -94,7 +103,7 @@
         modal.classList.toggle('hidden', !show);
         if(show) {
           const input = document.getElementById('specInput');
-          input.value = ''; // Clear previous entries
+          input.value = ''; 
           input.focus();
         }
     }
@@ -108,7 +117,6 @@
         }
     }
 
-    // Listen for "Enter" key on the modal input
     document.getElementById('specInput').addEventListener('keypress', function (e) {
       if (e.key === 'Enter') {
         confirmSpectate();
