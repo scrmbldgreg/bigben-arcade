@@ -100,13 +100,7 @@
   </div>
 
   <div id="toast" class="toast">Link Copied!</div>
-  <button onclick="confirmExit()" 
-        class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-red-600 hover:border-red-500 transition-all duration-300 shadow-2xl">
-    <span class="text-xl group-hover:scale-110 transition-transform">✖</span>
-    <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
-        Exit to Menu
-    </span>
-</button><script type="module">
+<script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
     import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
@@ -120,7 +114,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // --- 1 PC, 1 LOBBY PERSISTENCE ---
     let savedSession = JSON.parse(localStorage.getItem('blitz_session') || 'null');
     let playerUid = savedSession ? savedSession.uid : Math.random().toString(36).substring(7);
     let playerName = savedSession ? savedSession.name : "";
@@ -134,25 +127,31 @@
     const waitRoom = document.getElementById('waiting-room');
     const gameArea = document.getElementById('game');
 
-    // Auto-Recovery on Page Load
     window.addEventListener('DOMContentLoaded', async () => {
         if (lid) {
             lobbyRef = ref(db, `lobbies/${lid}`);
             const snap = await get(lobbyRef);
-            if (snap.exists()) {
-                enterWaitingRoom(lid);
-            } else {
-                localStorage.removeItem('blitz_session');
-            }
+            if (snap.exists()) { enterWaitingRoom(lid); } 
+            else { localStorage.removeItem('blitz_session'); }
         }
     });
 
-    // Save session helper
     function saveSession(id, name) {
         localStorage.setItem('blitz_session', JSON.stringify({ uid: playerUid, lid: id, name: name }));
     }
 
-    // Lobby Action (Create/Join)
+    // Tab Switching
+    document.getElementById('tabCreate').onclick = () => { mode = 'create'; tabCreate.className = 'flex-1 py-2 rounded-lg bg-blue-600 font-bold transition-all'; tabJoin.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; actionBtn.textContent = 'Create Lobby'; };
+    document.getElementById('tabJoin').onclick = () => { mode = 'join'; tabJoin.className = 'flex-1 py-2 rounded-lg bg-green-600 font-bold transition-all'; tabCreate.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; actionBtn.textContent = 'Join Lobby'; };
+
+    // Setup Board UI
+    const boardEl = document.getElementById('board');
+    for (let i = 0; i < 9; i++) {
+        const c = document.createElement('div'); c.id = `cell-${i}`; c.className = 'cell';
+        c.onclick = () => makeMove(i); boardEl.appendChild(c);
+    }
+
+    // Join/Create Logic
     document.getElementById('actionBtn').onclick = async () => {
         playerName = document.getElementById('playerName').value.trim();
         if (!playerName) return alert("Enter name");
@@ -192,7 +191,6 @@
         onValue(lobbyRef, (snap) => {
             const d = snap.val();
             if (!d) {
-                alert("Lobby closed by host.");
                 localStorage.removeItem('blitz_session');
                 location.reload();
                 return;
@@ -203,22 +201,64 @@
             if (!me) return;
             playerRole = me.role;
 
-            // UI Updates
-            const p1 = playersArr[0], p2 = playersArr[1];
-            document.getElementById('lobbyName1').textContent = p1?.name || "Host";
-            document.getElementById('lobbyScore1').textContent = p1?.score || 0;
-            document.getElementById('lobbyName2').textContent = p2?.name || "Guest";
-            document.getElementById('lobbyScore2').textContent = p2?.score || 0;
+            // Update UI
+            document.getElementById('lobbyName1').textContent = playersArr[0]?.name || "Host";
+            document.getElementById('lobbyScore1').textContent = playersArr[0]?.score || 0;
+            document.getElementById('lobbyName2').textContent = playersArr[1]?.name || "Guest";
+            document.getElementById('lobbyScore2').textContent = playersArr[1]?.score || 0;
 
-            const everyoneReady = playersArr.length === 2 && playersArr.every(p => p.ready && p.role);
+            // Pick Selection UI
+            const priorityUid = d.loserUid || playersArr.find(p => p.isHost).uid;
+            const hasPriorityPicked = playersArr.some(p => p.uid === priorityUid && p.role !== null);
+            let isMyTurnToPick = (playerUid === priorityUid) || hasPriorityPicked;
+            
+            const xBtn = document.getElementById('pickX'), oBtn = document.getElementById('pickO');
+            const xTaken = playersArr.some(p => p.role === 'X' && p.uid !== playerUid);
+            const oTaken = playersArr.some(p => p.role === 'O' && p.uid !== playerUid);
+
+            xBtn.disabled = !isMyTurnToPick || xTaken;
+            oBtn.disabled = !isMyTurnToPick || oTaken;
+            xBtn.className = `flex-1 py-4 rounded-xl border-2 font-black text-2xl transition-all ${playerRole === 'X' ? 'border-blue-500 bg-blue-500/20' : 'border-slate-700'}`;
+            oBtn.className = `flex-1 py-4 rounded-xl border-2 font-black text-2xl transition-all ${playerRole === 'O' ? 'border-pink-500 bg-pink-500/20' : 'border-slate-700'}`;
+
+            const readyBtn = document.getElementById('readyBtn');
+            readyBtn.disabled = !playerRole;
+            readyBtn.textContent = me.ready ? "✓ Ready" : "Mark Ready";
+            readyBtn.className = `w-full py-3 rounded-xl font-bold transition-all ${me.ready ? 'bg-green-600 border-green-500' : 'bg-slate-700 border-slate-600'}`;
+
             if (me.isHost) {
                 const startBtn = document.getElementById('startMatchBtn');
                 startBtn.classList.remove('hidden');
-                startBtn.disabled = !everyoneReady;
+                startBtn.disabled = !(playersArr.length === 2 && playersArr.every(p => p.ready));
             }
 
             if (d.started) runGame();
+            else { waitRoom.classList.remove('hidden'); gameArea.classList.add('hidden'); }
         });
+    }
+
+    // Role Selection Click Handlers
+    document.getElementById('pickX').onclick = () => selectRole('X');
+    document.getElementById('pickO').onclick = () => selectRole('O');
+    document.getElementById('readyBtn').onclick = () => toggleReady();
+    document.getElementById('startMatchBtn').onclick = () => update(lobbyRef, { started: true, lastMoveTime: Date.now() });
+
+    async function selectRole(role) {
+        const snap = await get(lobbyRef);
+        const d = snap.val();
+        const playersArr = Object.values(d.players);
+        const priorityUid = d.loserUid || playersArr.find(p => p.isHost).uid;
+        const hasPriorityPicked = playersArr.some(p => p.uid === priorityUid && p.role !== null);
+        
+        if (playerUid !== priorityUid && !hasPriorityPicked) return;
+        const newRole = (playerRole === role) ? null : role;
+        update(ref(db, `lobbies/${lid}/players/${playerUid}`), { role: newRole, ready: false });
+    }
+
+    async function toggleReady() {
+        const snap = await get(ref(db, `lobbies/${lid}/players/${playerUid}`));
+        const me = snap.val();
+        update(ref(db, `lobbies/${lid}/players/${playerUid}`), { ready: !me.ready });
     }
 
     async function makeMove(i) {
@@ -229,11 +269,8 @@
         let nb = [...d.board];
         let po = (d.piecesOrder[playerRole] || []).filter(v => v !== 99);
 
-        if (po.length < 3) {
-            nb[i] = playerRole; po.push(i);
-        } else {
-            const old = po.shift(); nb[old] = ""; nb[i] = playerRole; po.push(i);
-        }
+        if (po.length < 3) { nb[i] = playerRole; po.push(i); } 
+        else { const old = po.shift(); nb[old] = ""; nb[i] = playerRole; po.push(i); }
 
         const win = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].some(c => c.every(idx => nb[idx] === playerRole));
         const updates = { board: nb, [`piecesOrder/${playerRole}`]: po, lastMoveTime: Date.now() };
@@ -242,9 +279,7 @@
             updates.winner = playerRole;
             updates[`players/${playerUid}/score`] = (d.players[playerUid].score || 0) + 1;
             updates.loserUid = Object.keys(d.players).find(id => id !== playerUid);
-        } else {
-            updates.turn = playerRole === "X" ? "O" : "X";
-        }
+        } else { updates.turn = playerRole === "X" ? "O" : "X"; }
         update(lobbyRef, updates);
     }
 
@@ -254,6 +289,14 @@
         onValue(lobbyRef, (snap) => {
             const d = snap.val();
             if (!d || !d.started) return;
+            const pArr = Object.values(d.players);
+            document.getElementById('name1').textContent = pArr[0].name;
+            document.getElementById('score1').textContent = pArr[0].score;
+            document.getElementById('role1').textContent = pArr[0].role;
+            document.getElementById('name2').textContent = pArr[1].name;
+            document.getElementById('score2').textContent = pArr[1].score;
+            document.getElementById('role2').textContent = pArr[1].role;
+
             renderBoard(d.board, d.piecesOrder, d.turn);
             startTimer(d.lastMoveTime, d.turn, d.winner, d.board);
             document.getElementById('newGameBtn').classList.toggle('hidden', !d.winner);
@@ -285,12 +328,25 @@
         });
     }
 
-    // Manual Exit logic
-    window.confirmExit = async function() {
+    document.getElementById('newGameBtn').onclick = async () => {
         const snap = await get(lobbyRef);
         const d = snap.val();
-        if (d && d.players[playerUid]?.isHost) {
-            if (confirm("End match and close lobby for everyone?")) {
+        const updates = { 
+            board: Array(9).fill(""), turn: "X", piecesOrder: {X:[99], O:[99]}, winner: null, started: false 
+        };
+        Object.keys(d.players).forEach(uid => {
+            updates[`players/${uid}/ready`] = false;
+            updates[`players/${uid}/role`] = null;
+        });
+        update(lobbyRef, updates);
+    };
+
+    window.confirmExit = async function() {
+        const snap = await get(lobbyRef);
+        if (!snap.exists()) { window.location.href = '../index.html'; return; }
+        const d = snap.val();
+        if (d.players[playerUid]?.isHost) {
+            if (confirm("Close lobby for everyone?")) {
                 await remove(lobbyRef);
                 localStorage.removeItem('blitz_session');
                 window.location.href = '../index.html';
