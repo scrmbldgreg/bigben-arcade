@@ -39,7 +39,7 @@
     <div id="game-area" class="hidden flex flex-row items-center justify-center gap-12 w-full max-w-6xl">
         
         <div id="card1" class="player-column">
-            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Player</p>
+            <p id="displayName" class="text-xs font-bold text-slate-400 uppercase tracking-widest truncate px-2">Player</p>
             <p id="playerRoleIcon" class="text-6xl font-black">?</p>
             <p class="text-sm font-black text-slate-300">Score: <span id="score1" class="text-white">0</span></p>
         </div>
@@ -63,10 +63,15 @@
             <p class="text-sm font-black text-slate-300">Score: <span id="score2" class="text-white">0</span></p>
         </div>
 
-        <button onclick="location.reload()" class="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 text-slate-400 px-6 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">Exit Game</button>
+        <button onclick="window.location.href='../index.html'" class="fixed bottom-8 right-8 bg-slate-800 border border-slate-700 text-slate-400 px-6 py-2 rounded-lg text-xs font-black uppercase hover:bg-red-600 hover:text-white transition-all">Exit Game</button>
     </div>
 
     <script>
+        // --- NEW: FETCH CONFIG FROM URL ---
+        const urlParams = new URLSearchParams(window.location.search);
+        const configName = urlParams.get('name') || "Player";
+        const configTimer = parseFloat(urlParams.get('timer')) || 5.0;
+
         let board = Array(9).fill("");
         let piecesOrder = { X: [], O: [] };
         let scores = { X: 0, O: 0 };
@@ -74,9 +79,9 @@
         let cpuRole = "";
         let currentTurn = "X";
         let gameActive = false;
-        let timer = 5.0;
+        let timer = configTimer; // Use config
         let timerInterval;
-        let lastTickSec = 5;
+        let lastTickSec = Math.floor(configTimer);
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const winCombos = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -94,6 +99,10 @@
         function startGame(side) {
             playerRole = side;
             cpuRole = side === 'X' ? 'O' : 'X';
+            
+            // Apply name from URL
+            document.getElementById('displayName').textContent = configName;
+            
             document.getElementById('side-selection').classList.add('hidden');
             document.getElementById('game-area').classList.remove('hidden');
             
@@ -113,7 +122,7 @@
             piecesOrder = { X: [], O: [] };
             currentTurn = "X";
             gameActive = true;
-            lastTickSec = 5;
+            lastTickSec = Math.floor(configTimer);
             
             document.getElementById('timerDisplay').className = "text-5xl font-black font-mono text-white tracking-tighter";
             document.getElementById('end-game-controls').classList.add('hidden');
@@ -134,7 +143,7 @@
         }
 
         function startTimer() {
-            timer = 5.0;
+            timer = configTimer; // Reset to the difficulty set in menu
             clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 if (!gameActive) return clearInterval(timerInterval);
