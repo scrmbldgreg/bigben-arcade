@@ -106,230 +106,172 @@
     <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
         Exit to Menu
     </span>
-</button>
-
-<script type="module">
+</button><script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-    import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+    import { getDatabase, ref, set, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-    const firebaseConfig = { apiKey: "AIzaSyBSaKTzhqAU7EGgB2R614dx6LYUHmak2hE", authDomain: "tictactoe-72e15.firebaseapp.com", projectId: "tictactoe-72e15" };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    let playerUid = Math.random().toString(36).substring(7), playerRole = null, playerName = "", lobbyRef = null, timerInterval = null, unsub = null;
-    let mode = 'create';
-
-    const tabCreate = document.getElementById('tabCreate'), tabJoin = document.getElementById('tabJoin');
-    const actionBtn = document.getElementById('actionBtn'), lobbyInput = document.getElementById('lobbyId');
-    const waitRoom = document.getElementById('waiting-room'), gameArea = document.getElementById('game'), setupArea = document.getElementById('lobby-setup');
-    const abandonBuffer = document.getElementById('abandon-buffer'), abandonText = document.getElementById('abandon-text');
-
-    const savedMsg = sessionStorage.getItem('abandon_msg');
-    if (savedMsg) { abandonBuffer.classList.remove('hidden'); abandonText.textContent = savedMsg; sessionStorage.removeItem('abandon_msg'); }
-
-    tabCreate.onclick = () => { mode = 'create'; tabCreate.className = 'flex-1 py-2 rounded-lg bg-blue-600 font-bold transition-all'; tabJoin.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; actionBtn.className = 'w-full bg-blue-600 hover:bg-blue-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg'; actionBtn.textContent = 'Create Lobby'; };
-    tabJoin.onclick = () => { mode = 'join'; tabJoin.className = 'flex-1 py-2 rounded-lg bg-green-600 font-bold transition-all'; tabCreate.className = 'flex-1 py-2 rounded-lg font-bold text-slate-400 transition-all'; actionBtn.className = 'w-full bg-green-600 hover:bg-green-500 font-black py-4 rounded-xl transition-all uppercase tracking-widest shadow-lg'; actionBtn.textContent = 'Join Lobby'; };
-
-    const boardEl = document.getElementById('board');
-    for (let i = 0; i < 9; i++) {
-        const c = document.createElement('div'); c.id = `cell-${i}`; c.className = 'cell';
-        c.onclick = () => makeMove(i); boardEl.appendChild(c);
-    }
-
-    // Logic to handle Lobby Link Copying
-    document.getElementById('displayLobbyName').onclick = () => {
-        const url = `${window.location.origin}${window.location.pathname}?lobby=${document.getElementById('displayLobbyName').textContent}`;
-        navigator.clipboard.writeText(url);
-        const t = document.getElementById('toast'); t.style.opacity = 1;
-        setTimeout(() => t.style.opacity = 0, 2000);
+    const firebaseConfig = { 
+        apiKey: "AIzaSyBSaKTzhqAU7EGgB2R614dx6LYUHmak2hE", 
+        authDomain: "tictactoe-72e15.firebaseapp.com", 
+        databaseURL: "https://tictactoe-72e15-default-rtdb.firebaseio.com",
+        projectId: "tictactoe-72e15" 
     };
 
-    actionBtn.onclick = async () => {
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- 1 PC, 1 LOBBY PERSISTENCE ---
+    let savedSession = JSON.parse(localStorage.getItem('blitz_session') || 'null');
+    let playerUid = savedSession ? savedSession.uid : Math.random().toString(36).substring(7);
+    let playerName = savedSession ? savedSession.name : "";
+    let lid = savedSession ? savedSession.lid : null;
+    let playerRole = null;
+    let lobbyRef = null;
+    let timerInterval = null;
+    let mode = 'create';
+
+    const setupArea = document.getElementById('lobby-setup');
+    const waitRoom = document.getElementById('waiting-room');
+    const gameArea = document.getElementById('game');
+
+    // Auto-Recovery on Page Load
+    window.addEventListener('DOMContentLoaded', async () => {
+        if (lid) {
+            lobbyRef = ref(db, `lobbies/${lid}`);
+            const snap = await get(lobbyRef);
+            if (snap.exists()) {
+                enterWaitingRoom(lid);
+            } else {
+                localStorage.removeItem('blitz_session');
+            }
+        }
+    });
+
+    // Save session helper
+    function saveSession(id, name) {
+        localStorage.setItem('blitz_session', JSON.stringify({ uid: playerUid, lid: id, name: name }));
+    }
+
+    // Lobby Action (Create/Join)
+    document.getElementById('actionBtn').onclick = async () => {
         playerName = document.getElementById('playerName').value.trim();
         if (!playerName) return alert("Enter name");
-        let lid = lobbyInput.value.trim().replace(/\s+/g, '-');
-        if (!lid && mode === 'create') lid = Math.random().toString(36).substring(2, 7).toUpperCase();
-        if (!lid) return alert("Lobby name required!");
+        let inputLid = document.getElementById('lobbyId').value.trim().toUpperCase() || Math.random().toString(36).substring(2, 7).toUpperCase();
+        
+        lobbyRef = ref(db, `lobbies/${inputLid}`);
+        const snap = await get(lobbyRef);
 
-        lobbyRef = doc(db, "lobbies", lid);
-        const snap = await getDoc(lobbyRef);
         if (mode === 'create') {
-            if (snap.exists()) return alert("Lobby Name Taken!");
-            await setDoc(lobbyRef, { board: Array(9).fill(""), turn: "X", piecesOrder: {X:[], O:[]}, players: [{uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: true}], winner: null, started: false, lastMoveTime: Date.now(), abander: null, loserUid: null });
+            if (snap.exists()) return alert("Lobby Taken!");
+            await set(lobbyRef, {
+                board: Array(9).fill(""),
+                turn: "X",
+                piecesOrder: { X: [99], O: [99] },
+                players: { [playerUid]: { uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: true } },
+                started: false,
+                lastMoveTime: Date.now()
+            });
         } else {
-            if (!snap.exists()) return alert("Not found!");
-            const d = snap.data();
-            if (d.players.length >= 2) return alert("Full!");
-            if (d.players.some(p => p.name.toLowerCase() === playerName.toLowerCase())) return alert("Name taken!");
-            await updateDoc(lobbyRef, { players: arrayUnion({uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: false}) });
+            if (!snap.exists()) return alert("Lobby not found!");
+            const d = snap.val();
+            if (Object.keys(d.players || {}).length >= 2) return alert("Lobby full!");
+            await update(ref(db, `lobbies/${inputLid}/players/${playerUid}`), {
+                uid: playerUid, name: playerName, role: null, ready: false, score: 0, isHost: false
+            });
         }
+        lid = inputLid;
+        saveSession(lid, playerName);
         enterWaitingRoom(lid);
     };
 
-    function enterWaitingRoom(lid) {
-        setupArea.classList.add('hidden'); waitRoom.classList.remove('hidden'); gameArea.classList.add('hidden'); abandonBuffer.classList.add('hidden');
-        document.getElementById('displayLobbyName').textContent = lid;
+    function enterWaitingRoom(lobbyId) {
+        setupArea.classList.add('hidden');
+        waitRoom.classList.remove('hidden');
+        document.getElementById('displayLobbyName').textContent = lobbyId;
 
-        if (unsub) unsub();
-        unsub = onSnapshot(lobbyRef, (snap) => {
-            const d = snap.data(); if (!d) { location.reload(); return; }
-            
-            // Handle Abandonment
-            if (d.abander && d.abander !== playerName) {
-                const p1 = d.players[0], p2 = d.players[1];
-                sessionStorage.setItem('abandon_msg', `${d.abander} abandoned match. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
-                location.reload(); return;
+        onValue(lobbyRef, (snap) => {
+            const d = snap.val();
+            if (!d) {
+                alert("Lobby closed by host.");
+                localStorage.removeItem('blitz_session');
+                location.reload();
+                return;
             }
 
-            const me = d.players.find(p => p.uid === playerUid);
-            if (!me) { location.reload(); return; }
+            const playersArr = Object.values(d.players || {});
+            const me = d.players[playerUid];
+            if (!me) return;
             playerRole = me.role;
 
-            // Update Lobby UI
-            const p1 = d.players[0], p2 = d.players[1];
-            document.getElementById('lobbyName1').textContent = p1 ? p1.name : "Host";
-            document.getElementById('lobbyScore1').textContent = p1 ? p1.score : 0;
-            document.getElementById('lobbyName2').textContent = p2 ? p2.name : "Guest";
-            document.getElementById('lobbyScore2').textContent = p2 ? p2.score : 0;
+            // UI Updates
+            const p1 = playersArr[0], p2 = playersArr[1];
+            document.getElementById('lobbyName1').textContent = p1?.name || "Host";
+            document.getElementById('lobbyScore1').textContent = p1?.score || 0;
+            document.getElementById('lobbyName2').textContent = p2?.name || "Guest";
+            document.getElementById('lobbyScore2').textContent = p2?.score || 0;
 
-            // Role Selection Logic
-            const pickPrompt = document.getElementById('pickerPrompt');
-            const xBtn = document.getElementById('pickX'), oBtn = document.getElementById('pickO');
-            const xTaken = d.players.some(p => p.role === 'X'), oTaken = d.players.some(p => p.role === 'O');
-            const priorityUid = d.loserUid || d.players.find(p => p.isHost).uid;
-            const hasPriorityPicked = d.players.some(p => p.uid === priorityUid && p.role !== null);
-            
-            let isMyTurnToPick = (playerUid === priorityUid) || hasPriorityPicked;
-            if (playerUid === priorityUid) pickPrompt.textContent = d.loserUid ? "You lost! Pick side first." : "Host picks side first!";
-            else pickPrompt.textContent = hasPriorityPicked ? "Your turn to pick!" : "Waiting for prioritized player...";
-
-            xBtn.disabled = !isMyTurnToPick || (xTaken && playerRole !== 'X');
-            oBtn.disabled = !isMyTurnToPick || (oTaken && playerRole !== 'O');
-            
-            const readyBtn = document.getElementById('readyBtn');
-            readyBtn.disabled = !playerRole;
-            const everyoneReady = d.players.length === 2 && d.players.every(p => p.ready && p.role);
-            readyBtn.textContent = me.ready ? "✓ Ready" : "Mark Ready";
-            
+            const everyoneReady = playersArr.length === 2 && playersArr.every(p => p.ready && p.role);
             if (me.isHost) {
-                document.getElementById('startMatchBtn').classList.toggle('hidden', false);
-                document.getElementById('startMatchBtn').disabled = !everyoneReady;
+                const startBtn = document.getElementById('startMatchBtn');
+                startBtn.classList.remove('hidden');
+                startBtn.disabled = !everyoneReady;
             }
-            
-            if (d.started && d.players.length === 2) runGame(lid);
-            else { waitRoom.classList.remove('hidden'); gameArea.classList.add('hidden'); }
+
+            if (d.started) runGame();
         });
-    }
-
-    async function exitGame(isAbandon = false) {
-        if (!lobbyRef) { location.href = '../index.html'; return; }
-        const snap = await getDoc(lobbyRef);
-        if (snap.exists()) {
-            const d = snap.data();
-            const me = d.players.find(p => p.uid === playerUid);
-            if (isAbandon && d.started && !d.winner) {
-                const p1 = d.players[0], p2 = d.players[1];
-                sessionStorage.setItem('abandon_msg', `You abandoned. Final Score: ${p1?.score || 0}-${p2?.score || 0}`);
-                await updateDoc(lobbyRef, { abander: playerName });
-            }
-            if (me?.isHost) await deleteDoc(lobbyRef);
-            else if (me) await updateDoc(lobbyRef, { players: arrayRemove(me) });
-        }
-        location.href = '../index.html';
-    }
-
-    document.getElementById('exitLobbyBtn').onclick = () => exitGame(false);
-    document.getElementById('exitGameBtn').onclick = () => exitGame(true);
-    document.getElementById('pickX').onclick = () => selectRole('X');
-    document.getElementById('pickO').onclick = () => selectRole('O');
-    document.getElementById('readyBtn').onclick = () => toggleReady();
-    document.getElementById('startMatchBtn').onclick = async () => await updateDoc(lobbyRef, { started: true, lastMoveTime: Date.now() });
-
-    async function selectRole(role) {
-        const snap = await getDoc(lobbyRef);
-        const d = snap.data();
-        const me = d.players.find(p => p.uid === playerUid);
-        const priorityUid = d.loserUid || d.players.find(p => p.isHost).uid;
-        const hasPriorityPicked = d.players.some(p => p.uid === priorityUid && p.role !== null);
-        if (playerUid !== priorityUid && !hasPriorityPicked) return;
-        let newRole = (me.role === role) ? null : role;
-        if (newRole && d.players.some(p => p.role === newRole && p.uid !== playerUid)) return;
-        const newPlayers = d.players.map(p => p.uid === playerUid ? {...p, role: newRole, ready: false} : p);
-        await updateDoc(lobbyRef, { players: newPlayers });
-    }
-
-    async function toggleReady() {
-        if (!playerRole) return;
-        const snap = await getDoc(lobbyRef);
-        const newPlayers = snap.data().players.map(p => p.uid === playerUid ? {...p, ready: !p.ready} : p);
-        await updateDoc(lobbyRef, { players: newPlayers });
-    }
-
-    function runGame(lid) {
-        waitRoom.classList.add('hidden'); gameArea.classList.remove('hidden');
-        onSnapshot(lobbyRef, (snap) => {
-            const d = snap.data(); if (!d || !d.started) return;
-            const p1 = d.players[0], p2 = d.players[1];
-            
-            // Sync UI
-            document.getElementById('score1').textContent = p1?.score || 0;
-            document.getElementById('score2').textContent = p2?.score || 0;
-            document.getElementById('card1').className = `player-column ${d.turn === p1.role ? 'turn-glow-active' : ''}`;
-            document.getElementById('card2').className = `player-column ${d.turn === p2.role ? 'turn-glow-active' : ''}`;
-
-            renderBoard(d.board, d.piecesOrder, d.turn);
-            startTimer(d.lastMoveTime, d.turn, d.winner, d.board);
-            
-            if (d.winner) document.getElementById('newGameBtn').classList.remove('hidden');
-            else document.getElementById('newGameBtn').classList.add('hidden');
-        });
-    }
-
-    // UPDATED TIMER: Set to 1.0 second
-    function startTimer(lastTime, turn, winner, curBoard) {
-        clearInterval(timerInterval);
-        if (winner) {
-            document.getElementById('timerDisplay').textContent = "0.0";
-            return;
-        }
-        timerInterval = setInterval(async () => {
-            const rem = Math.max(0, 1.0 - (Date.now() - lastTime) / 1000).toFixed(1);
-            document.getElementById('timerDisplay').textContent = rem;
-            
-            if (rem <= 0 && playerRole === turn && !winner) {
-                clearInterval(timerInterval);
-                const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-                const opp = turn === "X" ? "O" : "X";
-                let spot = -1;
-                // Simple AI to prevent immediate loss on timeout
-                for (let c of wins) {
-                    const vals = c.map(i => curBoard[i]);
-                    if (vals.filter(v => v === opp).length === 2 && vals.indexOf("") !== -1) { spot = c[vals.indexOf("")]; break; }
-                }
-                if (spot === -1) spot = curBoard.indexOf("");
-                if (spot !== -1) makeMove(spot);
-            }
-        }, 100);
     }
 
     async function makeMove(i) {
-        const snap = await getDoc(lobbyRef);
-        const d = snap.data();
-        if (d.winner || d.turn !== playerRole || d.board[i] !== "") return;
-        let nb = [...d.board], no = { ...d.piecesOrder };
-        
-        // Blitz Logic: Max 3 pieces
-        if (no[playerRole].length < 3) { nb[i] = playerRole; no[playerRole].push(i); }
-        else { const old = no[playerRole].shift(); nb[old] = ""; nb[i] = playerRole; no[playerRole].push(i); }
-        
-        const win = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].some(c => c.every(idx => nb[idx] === playerRole));
-        if (win) {
-            const loser = d.players.find(p => p.role !== playerRole);
-            const up = d.players.map(p => p.role === playerRole ? {...p, score: p.score + 1} : p);
-            await updateDoc(lobbyRef, { board: nb, piecesOrder: no, winner: playerRole, players: up, lastMoveTime: Date.now(), loserUid: loser.uid });
-        } else { 
-            await updateDoc(lobbyRef, { board: nb, piecesOrder: no, turn: playerRole === "X" ? "O" : "X", lastMoveTime: Date.now() }); 
+        const snap = await get(lobbyRef);
+        const d = snap.val();
+        if (!d || d.winner || d.turn !== playerRole || d.board[i] !== "") return;
+
+        let nb = [...d.board];
+        let po = (d.piecesOrder[playerRole] || []).filter(v => v !== 99);
+
+        if (po.length < 3) {
+            nb[i] = playerRole; po.push(i);
+        } else {
+            const old = po.shift(); nb[old] = ""; nb[i] = playerRole; po.push(i);
         }
+
+        const win = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]].some(c => c.every(idx => nb[idx] === playerRole));
+        const updates = { board: nb, [`piecesOrder/${playerRole}`]: po, lastMoveTime: Date.now() };
+
+        if (win) {
+            updates.winner = playerRole;
+            updates[`players/${playerUid}/score`] = (d.players[playerUid].score || 0) + 1;
+            updates.loserUid = Object.keys(d.players).find(id => id !== playerUid);
+        } else {
+            updates.turn = playerRole === "X" ? "O" : "X";
+        }
+        update(lobbyRef, updates);
+    }
+
+    function runGame() {
+        waitRoom.classList.add('hidden');
+        gameArea.classList.remove('hidden');
+        onValue(lobbyRef, (snap) => {
+            const d = snap.val();
+            if (!d || !d.started) return;
+            renderBoard(d.board, d.piecesOrder, d.turn);
+            startTimer(d.lastMoveTime, d.turn, d.winner, d.board);
+            document.getElementById('newGameBtn').classList.toggle('hidden', !d.winner);
+        });
+    }
+
+    function startTimer(lastTime, turn, winner, curBoard) {
+        clearInterval(timerInterval);
+        if (winner) return;
+        timerInterval = setInterval(() => {
+            const rem = Math.max(0, 1.0 - (Date.now() - lastTime) / 1000).toFixed(1);
+            document.getElementById('timerDisplay').textContent = rem;
+            if (rem <= 0 && playerRole === turn) {
+                clearInterval(timerInterval);
+                const emptyIdx = curBoard.indexOf("");
+                if (emptyIdx !== -1) makeMove(emptyIdx);
+            }
+        }, 100);
     }
 
     function renderBoard(b, o, curr) {
@@ -337,31 +279,29 @@
             const c = document.getElementById(`cell-${i}`);
             c.textContent = v;
             c.className = `cell ${v === 'X' ? 'text-blue-400' : 'text-pink-500'}`;
-            // Ghosting effect for piece about to disappear
-            if (curr === playerRole && v === playerRole && o[playerRole].length === 3 && o[playerRole][0] === i) c.classList.add("opacity-30");
+            if (curr === playerRole && v === playerRole && o[playerRole] && o[playerRole].length === 3 && o[playerRole][0] === i) {
+                c.classList.add("opacity-30");
+            }
         });
     }
 
-    document.getElementById('newGameBtn').onclick = async () => {
-        const snap = await getDoc(lobbyRef);
-        const resetPlayers = snap.data().players.map(p => ({...p, ready: false, role: null}));
-        await updateDoc(lobbyRef, { board: Array(9).fill(""), turn: "X", piecesOrder: {X:[], O:[]}, winner: null, started: false, players: resetPlayers });
-    };
-
-    const urlLobby = new URLSearchParams(window.location.search).get('lobby');
-    if (urlLobby) { lobbyInput.value = urlLobby; tabJoin.click(); }
-
-    window.confirmExit = function() {
-        const isMultiplayer = !!document.getElementById('game');
-        if (isMultiplayer) {
-            if (confirm("Are you sure you want to exit? Active progress will be lost.")) {
-                exitGame(true);
+    // Manual Exit logic
+    window.confirmExit = async function() {
+        const snap = await get(lobbyRef);
+        const d = snap.val();
+        if (d && d.players[playerUid]?.isHost) {
+            if (confirm("End match and close lobby for everyone?")) {
+                await remove(lobbyRef);
+                localStorage.removeItem('blitz_session');
+                window.location.href = '../index.html';
             }
         } else {
-            window.location.href = '../index.html';
+            if (confirm("Leave this lobby?")) {
+                localStorage.removeItem('blitz_session');
+                window.location.href = '../index.html';
+            }
         }
     }
 </script>
-  </script>
 </body>
 </html>
