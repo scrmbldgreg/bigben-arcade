@@ -190,6 +190,9 @@ html, body {
                             <tbody class="bg-white rounded-2xl overflow-hidden"></tbody>
                         </table>
                     </div>
+                  <div id="jackpotStatus" class="hidden w-full text-center bg-yellow-400 text-london-blue font-black text-[10px] py-1 mb-2 rounded-lg animate-pulse uppercase">
+                    🔥 BLACKOUT MODE ACTIVE 🔥
+                  </div>
                 </div>
             </div>
 
@@ -653,8 +656,16 @@ function render(state) {
     btn.className = "bg-white text-london-blue px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs shadow-xl active:scale-95 transition";
     btn.textContent = "NEW";
   }
-  document.getElementById('jackpotStatus').classList.toggle('hidden', !state.isJackpotMode);
-  document.getElementById('jackpotBtn').textContent = state.isJackpotMode ? "CLASSIC" : "BLACKOUT";
+// FIXED: Check if element exists before toggling to prevent script error
+  const jStatus = document.getElementById('jackpotStatus');
+  if (jStatus) jStatus.classList.toggle('hidden', !state.isJackpotMode);
+
+  // FIXED: Update button styling to show it's active
+  const jBtn = document.getElementById('jackpotBtn');
+  if (jBtn) {
+    jBtn.textContent = state.isJackpotMode ? "MODE: BLACKOUT" : "MODE: CLASSIC";
+    jBtn.style.backgroundColor = state.isJackpotMode ? "#991b1b" : "transparent";
+  }
 }
 
 function clearCardMarksUI() {
@@ -721,18 +732,28 @@ async function announceWin() {
 }
 
 function checkWin() {
-  const board = Array.from(document.querySelectorAll('#bingoCard tr')).slice(1).map(tr => Array.from(tr.querySelectorAll('td')));
+  // Get all cells from the table body only
+  const rows = Array.from(document.querySelectorAll('#bingoCard tbody tr'));
+  const board = rows.map(tr => Array.from(tr.querySelectorAll('td')));
+  
   const isMarked = (td) => td.classList.contains('marked');
   let win = false;
-  if (isJackpotMode) { if (board.flat().every(isMarked)) win = true; } 
-  else {
-    for (let i=0; i<5; i++) {
-        if (board[i].every(isMarked)) win = true;
-        if (board.map(r => r[i]).every(isMarked)) win = true;
+
+  if (isJackpotMode) {
+    // Check if every single cell in the 5x5 grid is marked
+    const allCells = board.flat();
+    if (allCells.every(isMarked)) win = true;
+  } else {
+    // Standard Bingo Logic (Rows/Cols/Diagonals)
+    for (let i = 0; i < 5; i++) {
+      if (board[i].every(isMarked)) win = true; // Horizontal
+      if (board.map(r => r[i]).every(isMarked)) win = true; // Vertical
     }
-    if ([0,1,2,3,4].every(i => isMarked(board[i][i]))) win = true;
-    if ([0,1,2,3,4].every(i => isMarked(board[i][4-i]))) win = true;
+    // Diagonals
+    if ([0, 1, 2, 3, 4].every(i => isMarked(board[i][i]))) win = true;
+    if ([0, 1, 2, 3, 4].every(i => isMarked(board[i][4 - i]))) win = true;
   }
+
   if (win) announceWin();
 }
 
