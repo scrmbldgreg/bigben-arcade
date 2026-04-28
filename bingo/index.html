@@ -190,21 +190,32 @@ html, body {
                             <tbody class="bg-white rounded-2xl overflow-hidden"></tbody>
                         </table>
                     </div>
-                  <div id="jackpotStatus" class="hidden w-full text-center bg-yellow-400 text-london-blue font-black text-[10px] py-1 mb-2 rounded-lg animate-pulse uppercase">
-                    🔥 BLACKOUT MODE ACTIVE 🔥
+                  <div id="gameStatusBanner" class="hidden w-full flex items-center justify-center gap-3 bg-yellow-400 text-london-blue font-black text-[10px] py-2 mb-2 rounded-lg uppercase shadow-md">
+                      <span id="gameStatusText">🔥 BLACKOUT MODE ACTIVE 🔥</span>
+                      <div id="playerPatternView" class="hidden grid grid-cols-5 gap-[1px] w-6 h-6 bg-london-blue/20 p-[1px] rounded-sm"></div>
                   </div>
                 </div>
             </div>
 
             <div class="lg:col-span-1 space-y-6">
                 <div id="hostControlsPanel" class="hidden bg-london-blue p-6 rounded-3xl shadow-xl text-white">
-                    <button id="btnStartGame" onclick="triggerStartGame()" class="w-full bg-royal-red py-3 rounded-xl font-black shadow-lg mb-3 uppercase tracking-tighter">Start Game</button>
-                    <div id="activeHostButtons" class="hidden space-y-3">
-                        <button onclick="callNumber()" class="w-full bg-green-500 py-4 rounded-xl font-black text-lg shadow-inner uppercase">Call Number</button>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="toggleJackpotMode()" id="jackpotBtn" class="border border-white/20 py-2 rounded-lg text-[10px] font-bold">BLACKOUT</button>
-                            <button onclick="resetBingo()" class="text-white/30 text-[10px] font-bold uppercase">Reset</button>
+    
+                    <div id="gameSettingsPanel" class="flex flex-col gap-2 mb-4">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-300 text-center mb-1">Game Settings</span>
+                        <button onclick="cycleWinMode()" id="gameModeBtn" class="bg-london-blue border border-white/20 py-3 rounded-xl text-xs font-bold transition">MODE: CLASSIC</button>
+                        
+                        <div id="patternEditorPanel" class="hidden flex-col items-center bg-slate-800 p-3 rounded-xl shadow-inner">
+                            <span class="text-[8px] text-slate-400 font-bold uppercase tracking-widest mb-2">Draw Custom Pattern</span>
+                            <div id="hostPatternGrid" class="grid grid-cols-5 gap-1 w-32 h-32">
+                                </div>
                         </div>
+                    </div>
+
+                    <button id="btnStartGame" onclick="triggerStartGame()" class="w-full bg-royal-red py-4 rounded-xl font-black shadow-lg mb-2 uppercase tracking-tighter text-lg active:scale-95 transition">Start Game</button>
+                    
+                    <div id="activeHostButtons" class="hidden space-y-3">
+                        <button onclick="callNumber()" class="w-full bg-green-500 py-4 rounded-xl font-black text-lg shadow-inner uppercase active:scale-95 transition">Call Number</button>
+                        <button onclick="resetBingo()" class="w-full text-white/30 text-[10px] font-bold uppercase hover:text-white transition py-2 border border-white/10 rounded-lg">Reset Game</button>
                     </div>
                 </div>
 
@@ -274,9 +285,11 @@ const db = firebase.database();
 const LOBBY_LIFETIME = 3 * 60 * 60 * 1000; 
 const INACTIVITY_LIMIT = 2 * 60 * 60 * 1000; // 2 Hours Inactivity Limit
 let currentLobby = null, myName = null, isHost = false;
-let gameNumbersPool = [], calledNumbers = [], isJackpotMode = false, gameStarted = false;
+let gameNumbersPool = [], calledNumbers = [], gameStarted = false;
+let winMode = 'classic'; // 'classic', 'blackout', or 'pattern'
+let customPattern = Array(25).fill(false); // 1D array representing the 5x5 grid
 let isRolling = false;
-let displayedWinners = new Set(); 
+let displayedWinners = new Set();
 
 /* ================= NAVIGATION ================= */
 function showScreen(id) {
@@ -374,7 +387,14 @@ async function handleCreateLobby() {
     host: name, 
     players: [name],
     hostActive: true,
-    gameState: { calledNumbers: [], isJackpotMode: false, gameStarted: false, winners: [], lastNum: '-' }
+    gameState: { 
+        calledNumbers: [], 
+        winMode: 'classic', 
+        customPattern: Array(25).fill(false), 
+        gameStarted: false, 
+        winners: [], 
+        lastNum: '-' 
+    }
   });
   db.ref(`lobbies/${code}/hostActive`).onDisconnect().set(false);
   setupLobby();
@@ -457,7 +477,10 @@ function setupLobby() {
     if (data.gameState) {
         gameStarted = data.gameState.gameStarted;
         calledNumbers = data.gameState.calledNumbers || [];
-        isJackpotMode = data.gameState.isJackpotMode;
+        
+        // REPLACE isJackpotMode WITH THESE TWO LINES:
+        winMode = data.gameState.winMode || 'classic';
+        customPattern = data.gameState.customPattern || Array(25).fill(false);
         
         let currentWinners = data.gameState.winners || [];
         if (typeof currentWinners === 'string') currentWinners = [currentWinners];
@@ -534,14 +557,30 @@ function enterGamePanel() {
 }
 
 function triggerStartGame() {
-  if (!confirm("Start game?")) return;
-  gameNumbersPool = Array.from({length: 75}, (_, i) => i + 1);
-  db.ref('lobbies/' + currentLobby + '/gameState').update({ 
-    gameStarted: true, winners: [], calledNumbers: [], lastNum: '-' 
-  });
-  displayedWinners.clear();
-  document.getElementById('btnStartGame').classList.add('hidden');
-  document.getElementById('activeHostButtons').classList.remove('hidden');
+    // New validation check
+    if (winMode === 'pattern') {
+        let hasPattern = false;
+        for (let i = 0; i < 25; i++) {
+            // Ignore the free space at index 12
+            if (i !== 12 && customPattern[i]) {
+                hasPattern = true;
+                break;
+            }
+        }
+        if (!hasPattern) {
+            return alert("Please draw a pattern on the grid before starting the game!");
+        }
+    }
+
+    if (!confirm("Start game?")) return;
+    
+    gameNumbersPool = Array.from({length: 75}, (_, i) => i + 1);
+    db.ref('lobbies/' + currentLobby + '/gameState').update({ 
+        gameStarted: true, winners: [], calledNumbers: [], lastNum: '-' 
+    });
+    displayedWinners.clear();
+    document.getElementById('btnStartGame').classList.add('hidden');
+    document.getElementById('activeHostButtons').classList.remove('hidden');
 }
 
 function callNumber() {
@@ -593,79 +632,127 @@ function closeWinnerModal() {
 }
 
 function render(state) {
-  const display = document.getElementById('bingoCurrent');
-  const newNum = state.lastNum || '-';
-  const nums = state.calledNumbers || [];
-  const historyBox = document.getElementById('historyBox');
+    winMode = state.winMode || 'classic';
+    customPattern = state.customPattern || Array(25).fill(false);
 
-  const updateGroupedHistory = (numberList) => {
-    const groups = { B: [], I: [], N: [], G: [], O: [] };
-    numberList.forEach(n => {
-      const [letter, num] = n.split('-');
-      if (groups[letter]) groups[letter].push(parseInt(num));
-    });
+    const modeBtn = document.getElementById('gameModeBtn');
+    const patternPanel = document.getElementById('patternEditorPanel');
+    const statusBanner = document.getElementById('gameStatusBanner');
+    const statusText = document.getElementById('gameStatusText');
+    const playerPatternView = document.getElementById('playerPatternView');
 
-    let html = '<div class="grid grid-cols-5 gap-0.5 md:gap-1 w-full h-full">';
-    ['B','I','N','G','O'].forEach(letter => {
-       html += `
-        <div class="flex flex-col gap-1 items-center bg-slate-50 rounded-lg py-1 border border-slate-100 h-full">
-           <div class="font-black text-london-blue text-[10px] md:text-sm border-b-2 border-slate-200 w-full text-center pb-1">${letter}</div>
-           <div class="flex flex-col gap-0.5 w-full items-center h-full px-1">
-             ${groups[letter].sort((a,b)=>a-b).map(n => 
-                `<span class="text-[9px] md:text-xs font-bold text-slate-700 bg-white border border-slate-200 w-full text-center rounded shadow-sm">${n}</span>`
-             ).join('')}
-           </div>
-        </div>`;
-    });
-    html += '</div>';
-    historyBox.innerHTML = html;
-  };
+    // Toggle Play/Pre-Game UI based on game state
+    if (state.gameStarted) {
+        document.getElementById('btnStartGame').classList.add('hidden');
+        document.getElementById('activeHostButtons').classList.remove('hidden');
+    } else {
+        document.getElementById('btnStartGame').classList.remove('hidden');
+        document.getElementById('activeHostButtons').classList.add('hidden');
+    }
 
-  if (newNum !== display.dataset.current && newNum !== '-' && !isRolling) {
-    isRolling = true;
-    display.classList.add('slot-rolling');
-    updateGroupedHistory(nums.slice(0,-1));
-    let rollCount = 0;
-    const rollInterval = setInterval(() => {
-      const letters = ['B','I','N','G','O'];
-      display.textContent = `${letters[Math.floor(Math.random()*5)]}-${Math.floor(Math.random()*75)+1}`;
-      if (++rollCount > 10) {
-        clearInterval(rollInterval);
-        display.classList.remove('slot-rolling');
+    // Update Host UI (Mode & Pattern)
+    if (modeBtn) {
+        modeBtn.textContent = `MODE: ${winMode.toUpperCase()}`;
+        // If the game started, grey it out so the host knows it's locked
+        modeBtn.className = `border border-white/20 py-3 rounded-xl text-xs font-bold transition w-full ${state.gameStarted ? 'opacity-50 cursor-not-allowed ' : ''}${
+            winMode === 'blackout' ? 'bg-royal-red text-white' : 
+            winMode === 'pattern' ? 'bg-green-600 text-white' : 'bg-transparent text-white'
+        }`;
+    }
+
+    if (patternPanel) {
+        if (winMode === 'pattern') {
+            patternPanel.classList.remove('hidden');
+            patternPanel.classList.add('flex');
+            // Only let the grid be interactive if the game HAS NOT started yet
+            renderPatternGrid('hostPatternGrid', customPattern, !state.gameStarted && isHost);
+        } else {
+            patternPanel.classList.add('hidden');
+            patternPanel.classList.remove('flex');
+        }
+    }
+
+    // Update Player UI Status Banner
+    if (statusBanner) {
+        if (winMode === 'classic') {
+            statusBanner.classList.add('hidden');
+        } else {
+            statusBanner.classList.remove('hidden');
+            if (winMode === 'blackout') {
+                statusText.textContent = "🔥 BLACKOUT MODE ACTIVE 🔥";
+                playerPatternView.classList.add('hidden');
+            } else if (winMode === 'pattern') {
+                statusText.textContent = "🎯 MATCH THIS PATTERN 🎯";
+                playerPatternView.classList.remove('hidden');
+                renderPatternGrid('playerPatternView', customPattern, false);
+            }
+        }
+    }
+
+    // --- History & Slot Rolling Logic ---
+    const display = document.getElementById('bingoCurrent');
+    const newNum = state.lastNum || '-';
+    const nums = state.calledNumbers || [];
+    const historyBox = document.getElementById('historyBox');
+
+    const updateGroupedHistory = (numberList) => {
+        const groups = { B: [], I: [], N: [], G: [], O: [] };
+        numberList.forEach(n => {
+            const [letter, num] = n.split('-');
+            if (groups[letter]) groups[letter].push(parseInt(num));
+        });
+
+        let html = '<div class="grid grid-cols-5 gap-0.5 md:gap-1 w-full h-full">';
+        ['B','I','N','G','O'].forEach(letter => {
+           html += `
+            <div class="flex flex-col gap-1 items-center bg-slate-50 rounded-lg py-1 border border-slate-100 h-full">
+               <div class="font-black text-london-blue text-[10px] md:text-sm border-b-2 border-slate-200 w-full text-center pb-1">${letter}</div>
+               <div class="flex flex-col gap-0.5 w-full items-center h-full px-1">
+                 ${groups[letter].sort((a,b)=>a-b).map(n => 
+                    `<span class="text-[9px] md:text-xs font-bold text-slate-700 bg-white border border-slate-200 w-full text-center rounded shadow-sm">${n}</span>`
+                 ).join('')}
+               </div>
+            </div>`;
+        });
+        html += '</div>';
+        historyBox.innerHTML = html;
+    };
+
+    if (newNum !== display.dataset.current && newNum !== '-' && !isRolling) {
+        isRolling = true;
+        display.classList.add('slot-rolling');
+        updateGroupedHistory(nums.slice(0,-1));
+        let rollCount = 0;
+        const rollInterval = setInterval(() => {
+            const letters = ['B','I','N','G','O'];
+            display.textContent = `${letters[Math.floor(Math.random()*5)]}-${Math.floor(Math.random()*75)+1}`;
+            if (++rollCount > 10) {
+                clearInterval(rollInterval);
+                display.classList.remove('slot-rolling');
+                display.textContent = newNum;
+                display.dataset.current = newNum;
+                isRolling = false;
+                updateGroupedHistory(nums);
+            }
+        }, 80);
+    } else if (!isRolling) {
         display.textContent = newNum;
         display.dataset.current = newNum;
-        isRolling = false;
         updateGroupedHistory(nums);
-      }
-    }, 80);
-  } else if (!isRolling) {
-    display.textContent = newNum;
-    display.dataset.current = newNum;
-    updateGroupedHistory(nums);
-  }
+    }
 
-  if (!state.gameStarted) clearCardMarksUI();
-  
-  const btn = document.getElementById('btnNewCard');
-  if (state.gameStarted) {
-    btn.disabled = true;
-    btn.className = "bg-slate-200 text-slate-400 px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs cursor-not-allowed";
-    btn.textContent = "LOCKED";
-  } else {
-    btn.disabled = false;
-    btn.className = "bg-white text-london-blue px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs shadow-xl active:scale-95 transition";
-    btn.textContent = "NEW";
-  }
-// FIXED: Check if element exists before toggling to prevent script error
-  const jStatus = document.getElementById('jackpotStatus');
-  if (jStatus) jStatus.classList.toggle('hidden', !state.isJackpotMode);
-
-  // FIXED: Update button styling to show it's active
-  const jBtn = document.getElementById('jackpotBtn');
-  if (jBtn) {
-    jBtn.textContent = state.isJackpotMode ? "MODE: BLACKOUT" : "MODE: CLASSIC";
-    jBtn.style.backgroundColor = state.isJackpotMode ? "#991b1b" : "transparent";
-  }
+    if (!state.gameStarted) clearCardMarksUI();
+    
+    const btn = document.getElementById('btnNewCard');
+    if (state.gameStarted) {
+        btn.disabled = true;
+        btn.className = "bg-slate-200 text-slate-400 px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs cursor-not-allowed";
+        btn.textContent = "LOCKED";
+    } else {
+        btn.disabled = false;
+        btn.className = "bg-white text-london-blue px-2 py-1.5 md:px-3 md:py-2 rounded-lg md:rounded-xl font-bold text-[10px] md:text-xs shadow-xl active:scale-95 transition";
+        btn.textContent = "NEW";
+    }
 }
 
 function clearCardMarksUI() {
@@ -732,29 +819,45 @@ async function announceWin() {
 }
 
 function checkWin() {
-  // Get all cells from the table body only
-  const rows = Array.from(document.querySelectorAll('#bingoCard tbody tr'));
-  const board = rows.map(tr => Array.from(tr.querySelectorAll('td')));
-  
-  const isMarked = (td) => td.classList.contains('marked');
-  let win = false;
+    const rows = Array.from(document.querySelectorAll('#bingoCard tbody tr'));
+    const board = rows.map(tr => Array.from(tr.querySelectorAll('td')));
+    const isMarked = (td) => td.classList.contains('marked');
+    
+    let win = false;
 
-  if (isJackpotMode) {
-    // Check if every single cell in the 5x5 grid is marked
-    const allCells = board.flat();
-    if (allCells.every(isMarked)) win = true;
-  } else {
-    // Standard Bingo Logic (Rows/Cols/Diagonals)
-    for (let i = 0; i < 5; i++) {
-      if (board[i].every(isMarked)) win = true; // Horizontal
-      if (board.map(r => r[i]).every(isMarked)) win = true; // Vertical
+    if (winMode === 'blackout') {
+        const allCells = board.flat();
+        if (allCells.every(isMarked)) win = true;
+    } 
+    else if (winMode === 'pattern') {
+        const flatBoard = board.flat();
+        let patternMatched = true;
+        let hasRequiredCells = false; // Ensure a blank pattern isn't an instant win
+
+        for (let i = 0; i < 25; i++) {
+            // Ignore the center free space (index 12) as it's always marked
+            if (i !== 12 && customPattern[i]) {
+                hasRequiredCells = true;
+                if (!isMarked(flatBoard[i])) {
+                    patternMatched = false;
+                    break;
+                }
+            }
+        }
+        if (patternMatched && hasRequiredCells) win = true;
+    } 
+    else {
+        // Classic Logic (Rows/Cols/Diagonals)
+        for (let i = 0; i < 5; i++) {
+            if (board[i].every(isMarked)) win = true; // Horizontal
+            if (board.map(r => r[i]).every(isMarked)) win = true; // Vertical
+        }
+        // Diagonals
+        if ([0, 1, 2, 3, 4].every(i => isMarked(board[i][i]))) win = true;
+        if ([0, 1, 2, 3, 4].every(i => isMarked(board[i][4 - i]))) win = true;
     }
-    // Diagonals
-    if ([0, 1, 2, 3, 4].every(i => isMarked(board[i][i]))) win = true;
-    if ([0, 1, 2, 3, 4].every(i => isMarked(board[i][4 - i]))) win = true;
-  }
 
-  if (win) announceWin();
+    if (win) announceWin();
 }
 
 async function downloadCard() {
@@ -777,11 +880,63 @@ function resetBingo() {
   if (!isHost || !confirm("Reset game?")) return;
   gameNumbersPool = Array.from({length: 75}, (_, i) => i + 1);
   db.ref('lobbies/' + currentLobby + '/gameState').set({ 
-    calledNumbers: [], isJackpotMode: false, gameStarted: false, winners: [], lastNum: '-' 
+    calledNumbers: [], 
+    winMode: 'classic', // Replaced isJackpotMode
+    customPattern: Array(25).fill(false), // Reset the pattern board
+    gameStarted: false, 
+    winners: [], 
+    lastNum: '-' 
   });
   document.getElementById('btnStartGame').classList.remove('hidden');
   document.getElementById('activeHostButtons').classList.add('hidden');
   displayedWinners.clear();
+}
+function cycleWinMode() {
+    if (gameStarted) return; // Prevent changing mode mid-game
+    
+    let nextMode = 'classic';
+    if (winMode === 'classic') nextMode = 'blackout';
+    else if (winMode === 'blackout') nextMode = 'pattern';
+    
+    db.ref('lobbies/' + currentLobby + '/gameState').update({ winMode: nextMode });
+}
+
+function togglePatternCell(index) {
+    if (!isHost || gameStarted) return; // Prevent drawing mid-game
+    customPattern[index] = !customPattern[index];
+    db.ref('lobbies/' + currentLobby + '/gameState').update({ customPattern: customPattern });
+}
+
+function togglePatternCell(index) {
+    if (!isHost) return;
+    customPattern[index] = !customPattern[index];
+    db.ref('lobbies/' + currentLobby + '/gameState').update({ customPattern: customPattern });
+}
+
+function renderPatternGrid(gridElementId, patternArray, isInteractive) {
+    const grid = document.getElementById(gridElementId);
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    patternArray.forEach((isActive, index) => {
+        const cell = document.createElement('div');
+        // FREE space in the center (index 12) is always active
+        const isFreeSpace = (index === 12);
+        const cellActive = isActive || isFreeSpace;
+        
+        cell.className = `w-full h-full rounded-sm border ${isInteractive ? 'cursor-pointer transition-colors duration-150' : ''} ${
+            cellActive 
+            ? 'bg-royal-red border-red-900' 
+            : (isInteractive ? 'bg-slate-700 border-slate-600 hover:bg-slate-600' : 'bg-transparent border-slate-400/30')
+        }`;
+        
+        if (isFreeSpace && isInteractive) cell.classList.add('opacity-50', 'cursor-not-allowed');
+        
+        if (isInteractive && !isFreeSpace) {
+            cell.onclick = () => togglePatternCell(index);
+        }
+        grid.appendChild(cell);
+    });
 }
 </script>
 </body>
