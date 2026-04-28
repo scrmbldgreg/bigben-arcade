@@ -72,28 +72,14 @@ html, body {
 </head>
 <body class="bg-slate-50 min-h-screen flex flex-col items-center p-4 font-sans text-slate-900 overflow-x-hidden">
 
-  <!-- <div class="flex-1 w-full flex flex-col items-center"> -->
-    <!-- <div class="w-20 h-20 md:w-32 md:h-32 rounded-full border-4 border-white shadow-lg flex items-center justify-center overflow-hidden mb-2">
-      <img src="https://scrmbldgreg.github.io/bingo-manila/assets/bigbenmnl.png" alt="Big Ben Manila Logo" class="w-full h-full object-contain p-2">
-    </div> -->
-    <!-- <h1 class="text-xl md:text-2xl font-black tracking-tighter text-london-blue uppercase">Big Ben Bingo</h1> -->
-  <!-- </div> -->
-
 <div id="screenInitial" class="bg-white p-8 md:p-10 rounded-3xl shadow-xl w-full max-w-md flex flex-col gap-5 text-center border-2 border-slate-100">
     <div class="mb-4">
         <h1 class="text-3xl font-black tracking-tighter text-london-blue uppercase">Big Ben Bingo</h1>
-        <!-- <p class="text-slate-400 text-xs font-bold tracking-widest mt-1">SELECT AN OPTION</p> -->
     </div>
     
     <button onclick="showScreen('screenCreate')" class="bg-london-blue hover:opacity-90 text-white font-bold py-5 rounded-2xl transition shadow-lg active:scale-95 text-lg">
         CREATE ROOM
     </button>
-<!--     
-    <div class="flex items-center gap-3 my-1">
-        <div class="h-px bg-slate-200 flex-1"></div>
-        <span class="text-slate-300 font-bold text-xs">OR</span>
-        <div class="h-px bg-slate-200 flex-1"></div>
-    </div> -->
 
     <button onclick="showScreen('screenJoin')" class="bg-royal-red hover:opacity-90 text-white font-bold py-5 rounded-2xl transition shadow-lg shadow-red-100 active:scale-95 text-lg">
         JOIN ROOM
@@ -190,10 +176,6 @@ html, body {
                             <tbody class="bg-white rounded-2xl overflow-hidden"></tbody>
                         </table>
                     </div>
-                  <div id="gameStatusBanner" class="hidden w-full flex items-center justify-center gap-3 bg-yellow-400 text-london-blue font-black text-[10px] py-2 mb-2 rounded-lg uppercase shadow-md">
-                      <span id="gameStatusText">🔥 BLACKOUT MODE ACTIVE 🔥</span>
-                      <div id="playerPatternView" class="hidden grid grid-cols-5 gap-[1px] w-6 h-6 bg-london-blue/20 p-[1px] rounded-sm"></div>
-                  </div>
                 </div>
             </div>
 
@@ -220,10 +202,14 @@ html, body {
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl shadow-lg border-b-4 border-slate-200">
+                  <div id="gameTargetPanel" class="hidden bg-white p-6 rounded-3xl shadow-lg border-t-8 border-yellow-400 flex flex-col items-center justify-center transition-all">
+                      <!-- <h3 class="font-black text-slate-400 text-[10px] uppercase tracking-widest mb-1">Target Mode</h3> -->
+                      <div id="gameStatusText" class="text-xl font-black text-london-blue uppercase mb-2 text-center tracking-tighter">CLASSIC BINGO</div>
+                      <div id="playerPatternView" class="hidden grid grid-cols-5 gap-1 w-24 h-24 bg-slate-50 p-1 rounded-lg border-2 border-slate-200 shadow-inner"></div>
+                  </div>
                     <div class="flex justify-between items-end mb-4 border-b pb-2">
-                        <h3 class="font-black text-slate-400 text-xs uppercase tracking-widest">Leaderboard</h3>
+                        <h3 class="font-black text-slate-400 text-xs uppercase tracking-widest mt-4">Leaderboard</h3>
                         <div onclick="copyInviteLink()" class="cursor-pointer text-right group">
-                            <!-- <span class="text-[8px] font-bold text-slate-400 uppercase block leading-none">Copy Link</span> -->
                             <span id="gameRoomCode" class="text-xs font-black text-london-blue tracking-tighter group-hover:text-royal-red transition">XXXXX</span>
                         </div>
                     </div>
@@ -317,8 +303,6 @@ function showScreen(id) {
   if (footer) {
     footer.style.display = (id === 'gameArea') ? 'none' : 'flex';
   }
-
-  // DO NOT hide winnerModal here; it is managed by triggerWinnerPopup
 }
 
 /* ================= SESSION RECOVERY (NEW LOGIC) ================= */
@@ -478,7 +462,6 @@ function setupLobby() {
         gameStarted = data.gameState.gameStarted;
         calledNumbers = data.gameState.calledNumbers || [];
         
-        // REPLACE isJackpotMode WITH THESE TWO LINES:
         winMode = data.gameState.winMode || 'classic';
         customPattern = data.gameState.customPattern || Array(25).fill(false);
         
@@ -545,19 +528,16 @@ function enterGamePanel() {
   showScreen('gameArea');
   const code = currentLobby || "XXXXX";
   
-  // Set room code in both the header and the leaderboard card
-  // document.getElementById('headerRoomDisplay').textContent = "Room: " + code;
   document.getElementById('gameRoomCode').textContent = code;
 
   if (isHost) {
     document.getElementById('hostControlsPanel').classList.remove('hidden');
-    document.getElementById('btnCloseRoom').classList.remove('hidden'); // Show host close button
+    document.getElementById('btnCloseRoom').classList.remove('hidden'); 
   }
   generateCard();
 }
 
 function triggerStartGame() {
-    // New validation check
     if (winMode === 'pattern') {
         let hasPattern = false;
         for (let i = 0; i < 25; i++) {
@@ -594,10 +574,6 @@ function callNumber() {
   const label = (num<=15?'B':num<=30?'I':num<=45?'N':num<=60?'G':'O') + "-" + num;
   calledNumbers.push(label);
   db.ref('lobbies/' + currentLobby + '/gameState').update({ calledNumbers, lastNum: label });
-}
-
-function toggleJackpotMode() {
-  db.ref('lobbies/' + currentLobby + '/gameState').update({ isJackpotMode: !isJackpotMode });
 }
 
 async function leaveRoom(force = false) {
@@ -637,7 +613,6 @@ function render(state) {
 
     const modeBtn = document.getElementById('gameModeBtn');
     const patternPanel = document.getElementById('patternEditorPanel');
-    const statusBanner = document.getElementById('gameStatusBanner');
     const statusText = document.getElementById('gameStatusText');
     const playerPatternView = document.getElementById('playerPatternView');
 
@@ -672,17 +647,25 @@ function render(state) {
         }
     }
 
-    // Update Player UI Status Banner
-    if (statusBanner) {
-        if (winMode === 'classic') {
-            statusBanner.classList.add('hidden');
+    // Update Player Target Panel (Above Leaderboard)
+    const targetPanel = document.getElementById('gameTargetPanel');
+    if (targetPanel) {
+        if (!state.gameStarted) {
+            targetPanel.classList.add('hidden');
         } else {
-            statusBanner.classList.remove('hidden');
-            if (winMode === 'blackout') {
-                statusText.textContent = "🔥 BLACKOUT MODE ACTIVE 🔥";
+            targetPanel.classList.remove('hidden');
+            
+            if (winMode === 'classic') {
+                statusText.textContent = "CLASSIC BINGO";
+                targetPanel.className = "bg-white p-6 rounded-3xl shadow-lg border-t-8 border-london-blue flex flex-col items-center justify-center transition-all animate-fade-in";
+                playerPatternView.classList.add('hidden');
+            } else if (winMode === 'blackout') {
+                statusText.textContent = "BLACKOUT MODE";
+                targetPanel.className = "bg-white p-6 rounded-3xl shadow-lg border-t-8 border-royal-red flex flex-col items-center justify-center transition-all animate-fade-in";
                 playerPatternView.classList.add('hidden');
             } else if (winMode === 'pattern') {
-                statusText.textContent = "🎯 MATCH THIS PATTERN 🎯";
+                statusText.textContent = "MATCH PATTERN";
+                targetPanel.className = "bg-white p-6 rounded-3xl shadow-lg border-t-8 border-yellow-400 flex flex-col items-center justify-center transition-all animate-fade-in";
                 playerPatternView.classList.remove('hidden');
                 renderPatternGrid('playerPatternView', customPattern, false);
             }
@@ -802,12 +785,10 @@ function generateCard() {
 }
 
 async function announceWin() {
-  // Show locally immediately
   if (!displayedWinners.has(myName)) {
       triggerWinnerPopup(myName);
       displayedWinners.add(myName);
   }
-  // Robust Server Update
   const snapshot = await db.ref(`lobbies/${currentLobby}/gameState/winners`).get();
   let winners = snapshot.val() || [];
   if (typeof winners === 'string') winners = [winners];
@@ -832,10 +813,9 @@ function checkWin() {
     else if (winMode === 'pattern') {
         const flatBoard = board.flat();
         let patternMatched = true;
-        let hasRequiredCells = false; // Ensure a blank pattern isn't an instant win
+        let hasRequiredCells = false; 
 
         for (let i = 0; i < 25; i++) {
-            // Ignore the center free space (index 12) as it's always marked
             if (i !== 12 && customPattern[i]) {
                 hasRequiredCells = true;
                 if (!isMarked(flatBoard[i])) {
@@ -891,6 +871,7 @@ function resetBingo() {
   document.getElementById('activeHostButtons').classList.add('hidden');
   displayedWinners.clear();
 }
+
 function cycleWinMode() {
     if (gameStarted) return; // Prevent changing mode mid-game
     
@@ -903,12 +884,6 @@ function cycleWinMode() {
 
 function togglePatternCell(index) {
     if (!isHost || gameStarted) return; // Prevent drawing mid-game
-    customPattern[index] = !customPattern[index];
-    db.ref('lobbies/' + currentLobby + '/gameState').update({ customPattern: customPattern });
-}
-
-function togglePatternCell(index) {
-    if (!isHost) return;
     customPattern[index] = !customPattern[index];
     db.ref('lobbies/' + currentLobby + '/gameState').update({ customPattern: customPattern });
 }
