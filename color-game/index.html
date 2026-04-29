@@ -6,7 +6,6 @@
     <title>Big Ben Color Game</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <style>
@@ -15,31 +14,48 @@
         .screen { display: none; }
         .screen.active { display: flex; }
         .casino-card { background: #334155; border-radius: 2.5rem; border: 1px solid #475569; }
-        .zone-btn { aspect-ratio: 1/1; border-radius: 1.5rem; transition: all 0.2s; border: 4px solid transparent; }
-        .zone-btn.selected { border-color: white; transform: scale(0.95); box-shadow: 0 0 20px rgba(255,255,255,0.4); }
-        .eliminated { text-decoration: line-through; opacity: 0.4; filter: grayscale(1); }
-        .dice-box { width: 3.5rem; height: 3.5rem; border-radius: 0.8rem; display: flex; align-items: center; justify-content: center; font-weight: 900; color: black; transition: all 0.1s; border: 1px solid rgba(255,255,255,0.1); }
         
-        @keyframes casino-shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            25% { transform: translate(-2px, -1px) rotate(-1deg); }
-            50% { transform: translate(-1px, 2px) rotate(0deg); }
-            75% { transform: translate(2px, 1px) rotate(1deg); }
-            100% { transform: translate(1px, -2px) rotate(0deg); }
-        }
+        .zone-btn { aspect-ratio: 1/1; border-radius: 2rem; transition: all 0.2s; border: 6px solid transparent; position: relative; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); }
+        .zone-btn.selected { border-color: rgba(255, 255, 255, 0.9); transform: scale(0.95); box-shadow: inset 0 0 30px rgba(255,255,255,0.3), 0 0 20px rgba(255,255,255,0.4); }
+        .eliminated { text-decoration: line-through; opacity: 0.4; filter: grayscale(1); }
+        
+        /* 3D DICE */
+        .scene { width: 3.5rem; height: 3.5rem; perspective: 800px; }
+        .cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transform: translateZ(-1.75rem) rotateX(-20deg) rotateY(30deg); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .cube-rolling { animation: spin-3d 0.3s infinite linear; }
+        @keyframes spin-3d { 0% { transform: translateZ(-1.75rem) rotateX(0deg) rotateY(0deg) rotateZ(0deg); } 100% { transform: translateZ(-1.75rem) rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
+        .cube-face { position: absolute; width: 3.5rem; height: 3.5rem; border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 0.6rem; box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5); }
+        .face-Red { background: #ef4444; transform: rotateY(0deg) translateZ(1.75rem); }
+        .face-Green { background: #22c55e; transform: rotateY(90deg) translateZ(1.75rem); }
+        .face-Blue { background: #3b82f6; transform: rotateY(180deg) translateZ(1.75rem); }
+        .face-Yellow { background: #eab308; transform: rotateY(-90deg) translateZ(1.75rem); }
+        .face-Pink { background: #ec4899; transform: rotateX(90deg) translateZ(1.75rem); }
+        .face-White { background: #ffffff; transform: rotateX(-90deg) translateZ(1.75rem); }
+        
+        @keyframes casino-shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 25% { transform: translate(-2px, -1px) rotate(-1deg); } 50% { transform: translate(-1px, 2px) rotate(0deg); } 75% { transform: translate(2px, 1px) rotate(1deg); } 100% { transform: translate(1px, -2px) rotate(0deg); } }
         .is-rolling { animation: casino-shake 0.1s infinite linear; filter: brightness(1.3) contrast(1.2); }
         .rolling-row { animation: casino-shake 0.2s infinite alternate; }
         #qrcode img { margin: 0 auto; border-radius: 0.5rem; padding: 5px; background: white; }
+
+        /* Volume Slider Customization */
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ef4444; cursor: pointer; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center">
 
+    <audio id="bgMusic" autoplay loop src="https://scrmbldgreg.github.io/color-game/circus.mp3"></audio>
+
+    <div class="fixed bottom-8 right-8 z-[100] flex items-center gap-2 bg-slate-900/80 p-2 px-3 rounded-full border border-slate-700 backdrop-blur-md shadow-xl">
+        <button onclick="toggleMusic()" id="musicBtn" class="text-lg hover:scale-110 transition-transform active:scale-95">🔊</button>
+        <input type="range" id="volControl" min="0" max="1" step="0.05" value="0.05" class="w-16 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+    </div>
+
     <div id="screenInitial" class="screen active fixed inset-0 flex-col items-center justify-center p-4">
         <div class="casino-card p-8 w-full max-w-md text-center shadow-2xl">
-            <h1 class="text-4xl font-black italic mb-8 uppercase tracking-tighter italic">Big Ben<br/><span class="text-red-500">Color Game</span></h1>
+            <h1 class="text-4xl font-black italic mb-8 uppercase tracking-tighter">Big Ben<br/><span class="text-red-500">Color Game</span></h1>
             <div class="flex flex-col gap-3">
-                <button onclick="showScreen('screenCreate')" class="bg-white text-black font-black py-4 rounded-2xl tracking-widest hover:bg-slate-200 transition uppercase">Create Room</button>
-                <button onclick="showScreen('screenJoin')" class="bg-red-600 text-white font-black py-4 rounded-2xl tracking-widest hover:bg-red-700 transition uppercase">Join Room</button>
+                <button onclick="showScreen('screenCreate')" class="bg-white text-black font-black py-4 rounded-2xl tracking-widest hover:bg-slate-200 transition uppercase shadow-lg">Create Room</button>
+                <button onclick="showScreen('screenJoin')" class="bg-red-600 text-white font-black py-4 rounded-2xl tracking-widest hover:bg-red-700 transition uppercase shadow-lg">Join Room</button>
             </div>
         </div>
     </div>
@@ -72,7 +88,7 @@
             <button onclick="copyInviteLink()" class="bg-slate-700/50 hover:bg-slate-700 text-[10px] font-black py-2 px-6 rounded-full mb-8 uppercase tracking-widest transition">Share Link</button>
             <div class="text-left mb-8">
                 <p class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest italic">Players</p>
-                <div id="playerList" class="space-y-2"></div>
+                <div id="playerList" class="space-y-2 max-h-40 overflow-y-auto pr-2"></div>
             </div>
             <div class="flex flex-col gap-3">
                 <button onclick="enterGamePanel()" class="w-full bg-white text-black font-black py-4 rounded-2xl uppercase shadow-xl transition">Enter Game Panel</button>
@@ -89,26 +105,48 @@
             <div id="headerActions"></div>
         </header>
 
-        <main class="p-4 grid lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full">
-            <div class="lg:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-3" id="zonesGrid"></div>
-            <div class="lg:col-span-4 space-y-4">
-                <div class="bg-slate-700 p-4 rounded-[2rem] border border-slate-700 shadow-xl">
-                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mb-3 italic text-xs uppercase">Live Result</p>
-                    <div class="flex justify-center gap-2">
-                        <div id="pub-d1" class="dice-box bg-white">?</div>
-                        <div id="pub-d2" class="dice-box bg-white">?</div>
-                        <div id="pub-d3" class="dice-box bg-white">?</div>
+        <main class="p-4 grid lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full pt-16 lg:pt-4">
+            <div class="lg:col-span-8 flex flex-col gap-4">
+                
+                <div class="bg-slate-700/50 p-5 rounded-[2rem] border border-slate-700 flex justify-between items-center shadow-inner relative">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black uppercase text-slate-400 tracking-widest">My Balance</span>
+                        <span id="myBalanceDisplay" class="text-2xl font-black text-green-400 tracking-tighter">300 <span class="text-sm">💰</span></span>
+                    </div>
+                    <div class="flex items-center gap-3 bg-slate-800 p-2 rounded-2xl border border-slate-700">
+                        <button onclick="changeBet(-5)" class="w-10 h-10 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-xl flex items-center justify-center transition-all active:scale-95">-</button>
+                        <div class="w-16 flex flex-col items-center justify-center">
+                            <span class="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-none mb-1 mt-1">Bet Amount</span>
+                            <span id="myBetDisplay" class="text-xl font-black text-yellow-400 leading-none tracking-tighter">5</span>
+                        </div>
+                        <button onclick="changeBet(5)" class="w-10 h-10 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-xl flex items-center justify-center transition-all active:scale-95">+</button>
                     </div>
                 </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1" id="zonesGrid"></div>
+            </div>
+            
+            <div class="lg:col-span-4 space-y-4">
+                <div class="bg-slate-700 p-4 rounded-[2rem] border border-slate-700 shadow-xl">
+                    <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest text-center mb-3 italic">Live Result</p>
+                    
+                    <div class="flex justify-center gap-4 py-3">
+                        <div class="scene"><div id="pub-d1" class="cube"><div class="cube-face face-Red"></div><div class="cube-face face-Green"></div><div class="cube-face face-Blue"></div><div class="cube-face face-Yellow"></div><div class="cube-face face-Pink"></div><div class="cube-face face-White"></div></div></div>
+                        <div class="scene"><div id="pub-d2" class="cube"><div class="cube-face face-Red"></div><div class="cube-face face-Green"></div><div class="cube-face face-Blue"></div><div class="cube-face face-Yellow"></div><div class="cube-face face-Pink"></div><div class="cube-face face-White"></div></div></div>
+                        <div class="scene"><div id="pub-d3" class="cube"><div class="cube-face face-Red"></div><div class="cube-face face-Green"></div><div class="cube-face face-Blue"></div><div class="cube-face face-Yellow"></div><div class="cube-face face-Pink"></div><div class="cube-face face-White"></div></div></div>
+                    </div>
+                    
+                </div>
                 <div id="hostControls" class="hidden bg-slate-800 p-6 rounded-[2.5rem] border border-red-900/30 shadow-2xl text-center">
-                    <button id="rollBtn" onclick="handleHostRoll()" class="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition">Draw Colors</button>
+                    <button id="rollBtn" onclick="handleHostRoll()" class="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition relative overflow-hidden">
+                        Draw Colors
+                    </button>
                     <button onclick="handleResetGame()" class="w-full mt-3 text-slate-600 hover:text-white text-[9px] font-black uppercase tracking-widest transition">Reset Game</button>
                 </div>
                 <div class="bg-slate-700 rounded-[2.5rem] border border-slate-700 overflow-hidden shadow-xl">
                     <div class="p-5 border-b border-slate-700 flex justify-between items-center bg-slate-700/50">
                         <h3 class="text-[10px] font-black uppercase text-slate-400 tracking-widest italic">Leaderboard</h3>
-                        <span id="roomTag" onclick="copyInviteLink()" 
-                              class="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-1 rounded tracking-widest uppercase cursor-pointer hover:bg-red-500/20 transition active:scale-95"></span>
+                        <span id="roomTag" onclick="copyInviteLink()" class="text-[10px] font-black text-red-500 bg-red-500/10 px-2 py-1 rounded tracking-widest uppercase cursor-pointer hover:bg-red-500/20 transition active:scale-95"></span>
                     </div>
                     <div id="leaderboardList" class="divide-y divide-slate-700"></div>
                 </div>
@@ -118,11 +156,9 @@
     
     <button onclick="window.location.href='https://scrmbldgreg.github.io/bigben-arcade'" 
         class="fixed bottom-8 left-8 z-[100] group flex items-center justify-center w-12 h-12 bg-slate-900/80 border border-white/10 rounded-2xl backdrop-blur-md hover:bg-slate-800 hover:border-white/30 transition-all duration-300 shadow-2xl">
-    <span class="text-xl group-hover:scale-110 transition-transform">🕰️</span>
-    <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">
-        Big Ben Arcade
-    </span>
-  </button>
+        <span class="text-xl group-hover:scale-110 transition-transform">🕰️</span>
+        <span class="absolute left-16 scale-0 group-hover:scale-100 transition-all origin-left bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-2 px-4 rounded-xl border border-white/10 pointer-events-none">Big Ben Arcade</span>
+    </button>
 
     <footer id="mainFooter" class="mt-auto mb-8 flex flex-col items-center gap-4 opacity-60">
         <div class="h-px w-24 bg-slate-300"></div>
@@ -150,7 +186,44 @@
 
         let myId = "p-" + Date.now();
         let myName = "", currentRoom = null, isHost = false, globalIsRolling = false;
-        let lastRollingState = false, animationInterval = null;
+        let lastRollingState = false;
+        
+        let myCoins = 300;
+        let myCurrentBet = 5;
+        let myZone = 'none';
+
+        // Music Controls
+        const bgMusic = document.getElementById('bgMusic');
+        const volControl = document.getElementById('volControl');
+        let musicPlaying = true; // Set to true since autoplay is on
+        
+        // Setup initial volume
+        bgMusic.volume = volControl.value;
+
+        function toggleMusic() {
+            if (musicPlaying) {
+                bgMusic.pause();
+                document.getElementById('musicBtn').innerText = '🔇';
+            } else {
+                bgMusic.play().catch(e => console.log("Audio play failed:", e));
+                document.getElementById('musicBtn').innerText = '🔊';
+            }
+            musicPlaying = !musicPlaying;
+        }
+
+        volControl.addEventListener('input', (e) => {
+            bgMusic.volume = e.target.value;
+            if(e.target.value > 0 && !musicPlaying) {
+                // If they drag volume up from 0, auto play it
+                bgMusic.play().catch(err => console.log(err));
+                document.getElementById('musicBtn').innerText = '🔊';
+                musicPlaying = true;
+            } else if (e.target.value == 0 && musicPlaying) {
+                bgMusic.pause();
+                document.getElementById('musicBtn').innerText = '🔇';
+                musicPlaying = false;
+            }
+        });
 
         const COLORS = [
             { name: 'Red', hex: '#ef4444' }, { name: 'Green', hex: '#22c55e' },
@@ -158,7 +231,11 @@
             { name: 'Pink', hex: '#ec4899' }, { name: 'White', hex: '#ffffff' }
         ];
 
-        /* --- SESSION & FOOTER LOGIC --- */
+        const COLOR_ROTATIONS = {
+            'Red': 'rotateY(0deg)', 'Green': 'rotateY(-90deg)', 'Blue': 'rotateY(180deg)',
+            'Yellow': 'rotateY(90deg)', 'Pink': 'rotateX(-90deg)', 'White': 'rotateX(90deg)'
+        };
+
         window.onload = async () => {
             const savedSession = localStorage.getItem('cg_session');
             const params = new URLSearchParams(window.location.search);
@@ -192,34 +269,22 @@
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
             
-            // Hide footer in Game Panel
             const footer = document.getElementById('mainFooter');
-            if (id === 'screenGame') {
-                footer.classList.add('hidden');
-            } else {
-                footer.classList.remove('hidden');
-            }
+            if (id === 'screenGame') footer.classList.add('hidden');
+            else footer.classList.remove('hidden');
         }
 
         function saveSession() {
-            localStorage.setItem('cg_session', JSON.stringify({
-                id: myId, name: myName, room: currentRoom, isHost: isHost
-            }));
+            localStorage.setItem('cg_session', JSON.stringify({ id: myId, name: myName, room: currentRoom, isHost: isHost }));
         }
 
-        function clearSession() {
-            localStorage.removeItem('cg_session');
-        }
+        function clearSession() { localStorage.removeItem('cg_session'); }
 
         function generateQR(roomCode) {
             const qrContainer = document.getElementById("qrcode");
             qrContainer.innerHTML = "";
             const inviteUrl = `${window.location.origin}${window.location.pathname}?join=${roomCode}`;
-            new QRCode(qrContainer, {
-                text: inviteUrl, width: 160, height: 160,
-                colorDark : "#000000", colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
+            new QRCode(qrContainer, { text: inviteUrl, width: 160, height: 160, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.H });
         }
 
         async function handleCreateRoom() {
@@ -228,7 +293,7 @@
             currentRoom = Math.random().toString(36).substring(2, 7).toUpperCase();
             isHost = true;
             await db.ref('rooms/' + currentRoom).set({ hostId: myId, result: ['?','?','?'], isRolling: false });
-            await db.ref(`rooms/${currentRoom}/players/${myId}`).set({ name: myName, coins: 10, zone: 'none', isHost: true });
+            await db.ref(`rooms/${currentRoom}/players/${myId}`).set({ name: myName, coins: 300, betAmount: 5, zone: 'none', isHost: true });
             saveSession();
             startLobbySync();
             generateQR(currentRoom);
@@ -241,7 +306,7 @@
             if (!myName || !currentRoom) return alert("Missing info");
             const snap = await db.ref('rooms/' + currentRoom).get();
             if (!snap.exists()) return alert("Room not found");
-            await db.ref(`rooms/${currentRoom}/players/${myId}`).set({ name: myName, coins: 10, zone: 'none', isHost: false });
+            await db.ref(`rooms/${currentRoom}/players/${myId}`).set({ name: myName, coins: 300, betAmount: 5, zone: 'none', isHost: false });
             saveSession();
             startLobbySync();
             generateQR(currentRoom);
@@ -254,9 +319,7 @@
                 const players = snap.val() || {};
                 if (!players[myId]) { 
                     alert("You have been kicked or the room closed."); 
-                    clearSession();
-                    location.reload(); 
-                    return; 
+                    clearSession(); location.reload(); return; 
                 }
                 document.getElementById('playerList').innerHTML = Object.entries(players).map(([id, p]) => `
                     <div class="flex justify-between items-center bg-slate-800/50 p-4 rounded-2xl border border-slate-700">
@@ -288,26 +351,42 @@
 
         function initGame() {
             const grid = document.getElementById('zonesGrid');
-            grid.innerHTML = COLORS.map(c => `<button onclick="setBet('${c.name}')" id="btn-${c.name}" class="zone-btn" style="background-color: ${c.hex}"></button>`).join('');
+            grid.innerHTML = COLORS.map(c => `
+                <button onclick="setBet('${c.name}')" id="btn-${c.name}" class="zone-btn" style="background-color: ${c.hex}">
+                    <span class="absolute bottom-2 right-3 text-3xl font-black uppercase italic tracking-tighter opacity-20 pointer-events-none select-none" style="color: ${c.name === 'White' || c.name === 'Yellow' ? 'black' : 'white'}">${c.name}</span>
+                    <div id="coins-${c.name}" class="absolute inset-0 flex flex-wrap content-center justify-center gap-2 p-3 pointer-events-none"></div>
+                </button>
+            `).join('');
 
             db.ref(`rooms/${currentRoom}`).on('value', (snap) => {
                 const data = snap.val();
                 if (!data) return;
+                
                 globalIsRolling = data.isRolling;
                 const players = data.players || {};
-                
-                if (lastRollingState === true && globalIsRolling === false) {
-                    const me = players[myId];
-                    if (me && data.result.includes(me.zone)) confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                }
+
                 lastRollingState = globalIsRolling;
 
+                const me = players[myId];
+                if (me) {
+                    myCoins = me.coins;
+                    myZone = me.zone || 'none';
+                    document.getElementById('myBalanceDisplay').innerHTML = `${myCoins} <span class="text-sm">💰</span>`;
+                    
+                    if (myCoins > 0 && myCurrentBet > myCoins) {
+                        myCurrentBet = myCoins;
+                        document.getElementById('myBetDisplay').innerText = myCurrentBet;
+                    } else if (myCoins <= 0) {
+                        myCurrentBet = 0;
+                        document.getElementById('myBetDisplay').innerText = myCurrentBet;
+                    }
+                }
+
+                // Update leaderboard
                 const leaderboard = document.getElementById('leaderboardList');
                 leaderboard.innerHTML = Object.entries(players).sort((a,b) => b[1].coins - a[1].coins).map(([id, p]) => {
                     const col = COLORS.find(c => c.name === p.zone);
                     const rowClass = globalIsRolling && p.zone !== 'none' ? 'rolling-row is-rolling' : '';
-                    
-                    // NEW: Find the color details for their last pick
                     const lastCol = p.lastZone && p.lastZone !== 'none' ? COLORS.find(c => c.name === p.lastZone) : null;
                     const lastPickIndicator = lastCol 
                         ? `<span class="inline-block w-2.5 h-2.5 rounded-full ml-2 shadow-sm" style="background-color: ${lastCol.hex}; border: 1px solid rgba(255,255,255,0.3);" title="Last pick: ${p.lastZone}"></span>` 
@@ -322,8 +401,8 @@
                                 <div class="flex gap-2 mt-1">
                                     ${isHost && id !== myId ? `<button onclick="kickPlayer('${id}')" class="text-[7px] text-red-500 font-bold uppercase">Kick</button>` : ''}
                                     ${isHost ? `
-                                        <button onclick="subtractCoin('${id}')" class="text-[7px] text-slate-400 font-bold uppercase tracking-widest">-1 💰</button>
-                                        <button onclick="addCoin('${id}')" class="text-[7px] text-green-500 font-bold uppercase tracking-widest">+1 💰</button>
+                                        <button onclick="subtractCoin('${id}')" class="text-[7px] text-slate-400 font-bold uppercase tracking-widest">-10 💰</button>
+                                        <button onclick="addCoin('${id}')" class="text-[7px] text-green-500 font-bold uppercase tracking-widest">+10 💰</button>
                                     ` : ''}
                                 </div>
                             </div>
@@ -332,60 +411,119 @@
                     `;
                 }).join('');
 
+                // Distribute coins on grid
+                COLORS.forEach(c => {
+                    const container = document.getElementById(`coins-${c.name}`);
+                    if (container) container.innerHTML = '';
+                });
+
+                Object.entries(players).forEach(([id, p]) => {
+                    if (p.zone && p.zone !== 'none') {
+                        const container = document.getElementById(`coins-${p.zone}`);
+                        if (container) {
+                            const isMe = id === myId;
+                            const borderClass = isMe ? 'border-white' : 'border-yellow-600';
+                            const nameClass = isMe ? 'text-yellow-300' : 'text-white';
+                            const zIndex = isMe ? 'z-20' : 'z-10';
+                            const scale = isMe ? 'scale-110' : 'scale-100';
+                            
+                            container.innerHTML += `
+                                <div class="flex flex-col items-center justify-center ${zIndex} ${scale} drop-shadow-lg transition-transform hover:scale-125">
+                                    <div class="w-9 h-9 bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-full border-2 ${borderClass} flex items-center justify-center text-[12px] font-black text-yellow-900 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_4px_rgba(0,0,0,0.4)]">
+                                        ${p.betAmount || 5}
+                                    </div>
+                                    <span class="text-[9px] font-black bg-black/80 px-2 py-0.5 rounded-full mt-1 ${nameClass} shadow-md truncate max-w-[4.5rem] tracking-wider uppercase border border-white/10">${p.name}</span>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+
                 if (globalIsRolling) startDiceOnlyAnimation(); else updateDiceDisplay(data.result);
-                const me = players[myId];
-                if (!me) return;
+                
                 document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('selected'));
-                if (me.zone !== 'none') {
+                if (me && me.zone !== 'none') {
                     const myBtn = document.getElementById(`btn-${me.zone}`);
                     if (myBtn) myBtn.classList.add('selected');
                 }
             });
         }
 
+        function changeBet(delta) {
+            if(globalIsRolling) return;
+            let newBet = myCurrentBet + delta;
+            
+            if (newBet < 5) newBet = 5;
+            
+            if (myCoins > 0 && newBet > myCoins) {
+                newBet = myCoins;
+            } else if (myCoins <= 0) {
+                newBet = 0;
+            }
+
+            if (newBet !== myCurrentBet) {
+                myCurrentBet = newBet;
+                document.getElementById('myBetDisplay').innerText = myCurrentBet;
+                
+                // Keep the exact same zone, just push the new betAmount
+                db.ref(`rooms/${currentRoom}/players/${myId}/betAmount`).set(myCurrentBet);
+            }
+        }
+
+        function setBet(color) { 
+            if(globalIsRolling) return; 
+            
+            // Toggle OFF feature: If they click the color they are already on, remove the bet
+            if (myZone === color) {
+                db.ref(`rooms/${currentRoom}/players/${myId}`).update({ zone: 'none' });
+                return;
+            }
+
+            if (myCoins < myCurrentBet || myCurrentBet === 0) return alert("Insufficient funds!");
+            
+            // Push the current local betAmount to the DB when changing color. (Do NOT reset to 5)
+            db.ref(`rooms/${currentRoom}/players/${myId}`).update({
+                zone: color,
+                betAmount: myCurrentBet
+            });
+        }
+
         function startDiceOnlyAnimation() {
-            if (animationInterval) return;
-            const dice = [document.getElementById('pub-d1'), document.getElementById('pub-d2'), document.getElementById('pub-d3')];
-            animationInterval = setInterval(() => {
-                dice.forEach(d => {
-                    const rand = COLORS[Math.floor(Math.random() * 6)];
-                    d.style.backgroundColor = rand.hex; d.textContent = ""; d.classList.add('is-rolling');
-                });
-            }, 80);
+            [1, 2, 3].forEach(i => {
+                const d = document.getElementById(`pub-d${i}`);
+                if (d) { d.classList.add('cube-rolling'); d.style.transform = ''; }
+            });
         }
 
         function updateDiceDisplay(res) {
-            if (animationInterval) { clearInterval(animationInterval); animationInterval = null; }
             [1, 2, 3].forEach(i => {
                 const d = document.getElementById(`pub-d${i}`);
                 if (d) {
-                    d.classList.remove('is-rolling');
+                    d.classList.remove('cube-rolling');
                     const colorName = res[i-1];
-                    const col = COLORS.find(c => c.name === colorName);
-                    if (col) { d.style.backgroundColor = col.hex; d.textContent = ""; d.style.opacity = "1"; }
-                    else { d.style.backgroundColor = "#fff"; d.textContent = "?"; d.style.opacity = "0.5"; }
+                    if (colorName && COLOR_ROTATIONS[colorName]) {
+                        d.style.transform = `translateZ(-1.75rem) ${COLOR_ROTATIONS[colorName]}`;
+                    } else {
+                        d.style.transform = `translateZ(-1.75rem) rotateX(-20deg) rotateY(30deg)`;
+                    }
                 }
             });
         }
 
-        function setBet(color) { if(globalIsRolling) return; db.ref(`rooms/${currentRoom}/players/${myId}/zone`).set(color); }
         function kickPlayer(id) { if(confirm("Kick player?")) db.ref(`rooms/${currentRoom}/players/${id}`).remove(); }
-        function addCoin(id) { db.ref(`rooms/${currentRoom}/players/${id}/coins`).transaction(c => (c || 0) + 1); }
-        function subtractCoin(id) { db.ref(`rooms/${currentRoom}/players/${id}/coins`).transaction(c => {return Math.max(0, (c || 0) - 1);
-    }); 
-}
+        function addCoin(id) { db.ref(`rooms/${currentRoom}/players/${id}/coins`).transaction(c => (c || 0) + 10); }
+        function subtractCoin(id) { db.ref(`rooms/${currentRoom}/players/${id}/coins`).transaction(c => Math.max(0, (c || 0) - 10)); }
+        
         function leaveRoom() { 
             if(confirm("Leave room?")) { 
                 db.ref(`rooms/${currentRoom}/players/${myId}`).remove(); 
-                clearSession();
-                location.reload(); 
+                clearSession(); location.reload(); 
             } 
         }
         
         function closeRoom() { 
             if(confirm("End game and delete room?")) {
-                db.ref(`rooms/${currentRoom}`).remove(); 
-                clearSession();
+                db.ref(`rooms/${currentRoom}`).remove(); clearSession();
             }
         }
         
@@ -394,40 +532,73 @@
             const updates = {};
             if (snap.exists()) {
                 Object.keys(snap.val()).forEach(id => { 
-                    updates[`players/${id}/coins`] = 10; 
+                    updates[`players/${id}/coins`] = 300; 
+                    updates[`players/${id}/betAmount`] = 5; 
                     updates[`players/${id}/zone`] = 'none'; 
-                    updates[`players/${id}/lastZone`] = 'none'; // NEW: Clear last pick
+                    updates[`players/${id}/lastZone`] = 'none';
                 });
             }
-            updates['result'] = ['?','?','?']; updates['isRolling'] = false;
+            updates['result'] = ['?','?','?']; 
+            updates['isRolling'] = false;
             db.ref(`rooms/${currentRoom}`).update(updates);
         }
 
         async function handleHostRoll() {
             if(globalIsRolling) return;
-            const btn = document.getElementById('rollBtn'); btn.disabled = true;
-            await db.ref(`rooms/${currentRoom}/isRolling`).set(true);
+            const btn = document.getElementById('rollBtn'); 
+            
+            btn.disabled = true;
+            btn.innerHTML = 'Rolling...';
+            
+            await db.ref(`rooms/${currentRoom}`).update({ isRolling: true });
+            
             setTimeout(async () => {
                 const res = [COLORS[Math.floor(Math.random()*6)].name, COLORS[Math.floor(Math.random()*6)].name, COLORS[Math.floor(Math.random()*6)].name];
                 const snap = await db.ref(`rooms/${currentRoom}/players`).get();
                 const players = snap.val();
-                const updates = { isRolling: false, result: res };
-                Object.entries(players).forEach(([id, p]) => {
-                    if (p.zone !== 'none') {
-                        const matches = res.filter(c => c === p.zone).length;
-                        updates[`players/${id}/coins`] = Math.max(0, p.coins + (matches > 0 ? matches : -1));
-                        
-                        // NEW: Save the zone they just played before resetting it
-                        updates[`players/${id}/lastZone`] = p.zone; 
-                        
-                        updates[`players/${id}/zone`] = 'none'; 
+                
+                const immediateUpdates = { isRolling: false, result: res };
+                
+                if (players) {
+                    Object.entries(players).forEach(([id, p]) => {
+                        if (p.zone !== 'none') {
+                            const matches = res.filter(c => c === p.zone).length;
+                            const bet = p.betAmount || 5;
+                            let newCoins = p.coins;
+                            
+                            if (matches > 0) {
+                                newCoins += (matches * bet);
+                            } else {
+                                newCoins = Math.max(0, p.coins - bet);
+                            }
+                            
+                            immediateUpdates[`players/${id}/coins`] = newCoins;
+                            immediateUpdates[`players/${id}/lastZone`] = p.zone; 
+                            
+                            // Immediately remove bet if they went bankrupt from this roll
+                            if (newCoins < bet) {
+                                immediateUpdates[`players/${id}/zone`] = 'none';
+                            }
+                        }
+                    });
+                }
+                await db.ref(`rooms/${currentRoom}`).update(immediateUpdates);
+                
+                // Set the button to show the cooldown text for the host
+                let cooldown = 3;
+                btn.innerHTML = `Wait ${cooldown}s`;
+                const countdownInterval = setInterval(() => {
+                    cooldown--;
+                    if(cooldown > 0) {
+                        btn.innerHTML = `Wait ${cooldown}s`;
+                    } else {
+                        clearInterval(countdownInterval);
+                        btn.disabled = false;
+                        btn.innerHTML = 'Draw Colors';
                     }
-                });
-                await db.ref(`rooms/${currentRoom}`).update(updates);
-                btn.disabled = false;
-            }, 2000);
+                }, 1000);
 
-            
+            }, 2000); // 2-second roll animation
         }
 
         function copyInviteLink() {
