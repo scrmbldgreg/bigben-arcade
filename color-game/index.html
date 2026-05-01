@@ -64,25 +64,28 @@
         /* Volume Slider Customization */
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ef4444; cursor: pointer; }
 
-        /* Portrait Overlay */
-        /* Portrait Overlay */
-            #portrait-warning { display: none; }
+        /* Portrait Overlay - Only active when in-game */
+        #portrait-warning { display: none; }
 
-            @media screen and (orientation: portrait) {
-                #screenGame { display: none !important; }
-                #portrait-warning { 
-                    display: flex; 
-                    position: fixed; 
-                    inset: 0; 
-                    background: #1e293b; 
-                    z-index: 9999; 
-                    flex-direction: column; 
-                    align-items: center; 
-                    justify-content: center; 
-                    text-align: center; 
-                    padding: 2rem;
-                }
+        @media screen and (orientation: portrait) {
+            body.in-game #screenGame { display: none !important; }
+            body.in-game #portrait-warning { 
+                display: flex; 
+                position: fixed; 
+                inset: 0; 
+                background: #1e293b; 
+                z-index: 9999; 
+                flex-direction: column; 
+                align-items: center; 
+                justify-content: center; 
+                text-align: center; 
+                padding: 2rem;
             }
+        }
+        /* Hide footer on short screens (like mobile landscape) */
+        @media screen and (max-height: 500px) {
+            #mainFooter { display: none !important; }
+        }
     </style>
 
     <meta name="mobile-web-app-capable" content="yes">
@@ -186,7 +189,7 @@
             </div>
             
             <div class="w-[45%] sm:w-[280px] flex-shrink-0 flex flex-col gap-2 h-full min-h-0">
-                <<div class="bg-slate-700 rounded-xl sm:rounded-2xl border border-slate-700 shadow-xl flex-shrink-0 flex flex-col justify-center h-[60px] sm:h-[100px] relative z-20">
+                <div class="bg-slate-700 rounded-xl sm:rounded-2xl border border-slate-700 shadow-xl flex-shrink-0 flex flex-col justify-center h-[60px] sm:h-[100px] relative z-20">
                     <p class="absolute top-1 sm:top-2 left-0 w-full text-[7px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest text-center italic pointer-events-none">Live Result</p>
                     <div class="flex items-center justify-center mt-3 sm:mt-5">
                         <div id="diceContainer" class="flex justify-center gap-2 sm:gap-4 transition-all duration-700 ease-out origin-center transform scale-[0.45] sm:scale-75">
@@ -233,8 +236,7 @@
         </div>
     </div>
 
-    <footer id="mainFooter" class="mt-auto mb-8 flex flex-col items-center gap-4 opacity-60">
-        <div class="h-px w-24 bg-slate-300"></div>
+    <footer id="mainFooter" class="hidden sm:flex mt-auto mb-8 flex-col items-center gap-4 opacity-60">
         <div class="flex items-center gap-2">
             <img src="https://scrmbldgreg.github.io/bingo-manila/assets/gemini-ai-logo.png" alt="Gemini Logo" class="w-4 h-4 md:w-6 md:h-6 animate-pulse">
             <p class="text-[8px] md:text-[10px] font-bold tracking-[0.2em] text-white uppercase">Powered by Gemini AI</p>
@@ -466,22 +468,27 @@
             });
         }
 
-        async function enterGamePanel() {
-            // Check if the user is on a mobile device or tablet
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1024;
+        function enterGamePanel() {
+            // 1. Tag the body so the CSS knows we are in the game panel
+            document.body.classList.add('in-game');
 
-            // Only attempt to force fullscreen and landscape on mobile
+            // 2. Safely attempt to force fullscreen and landscape on mobile
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 1024;
+            
             if (isMobile) {
                 try {
                     let elem = document.documentElement;
-                    if (elem.requestFullscreen) await elem.requestFullscreen();
-                    else if (elem.webkitRequestFullscreen) await elem.webkitRequestFullscreen(); // Safari
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen().catch(err => console.log("Fullscreen denied"));
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen(); // Safari
+                    }
                     
                     if (screen.orientation && screen.orientation.lock) {
-                        await screen.orientation.lock("landscape");
+                        screen.orientation.lock("landscape").catch(err => console.log("Rotation lock denied"));
                     }
                 } catch (err) {
-                    console.log("Device does not support auto-rotation lock. Relying on CSS overlay.");
+                    console.log("Device does not support auto-rotation lock.");
                 }
             }
 
@@ -683,8 +690,8 @@
         function kickPlayer(id) { if(confirm("Kick player?")) db.ref(`rooms/${currentRoom}/players/${id}`).remove(); }
         function addCoin(id) { db.ref(`rooms/${currentRoom}/players/${id}/coins`).transaction(c => (c || 0) + 10); }
         function subtractCoin(id) { db.ref(`rooms/${currentRoom}/players/${id}/coins`).transaction(c => Math.max(0, (c || 0) - 10)); }
-        function leaveRoom() { if(confirm("Leave room?")) { db.ref(`rooms/${currentRoom}/players/${myId}`).remove(); clearSession(); location.reload(); } }
-        function closeRoom() { if(confirm("End game and delete room?")) { db.ref(`rooms/${currentRoom}`).remove(); clearSession(); } }
+        function leaveRoom() { if(confirm("Leave room?")) { document.body.classList.remove('in-game'); db.ref(`rooms/${currentRoom}/players/${myId}`).remove(); clearSession(); location.reload(); } }
+        function closeRoom() { if(confirm("End game and delete room?")) { document.body.classList.remove('in-game'); db.ref(`rooms/${currentRoom}`).remove(); clearSession(); } }
         async function handleResetGame() {
             const snap = await db.ref(`rooms/${currentRoom}/players`).get();
             const updates = {};
